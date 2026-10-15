@@ -205,10 +205,12 @@ Keep a `CLAUDE.md` in the repo root containing:
 
 ## Getting started
 
-Not scaffolded yet. Once the project exists:
-
 ```bash
 npm install
-npm run dev     # run the app locally
-npm test        # run logic tests
+npm run dev     # run the app locally → http://localhost:3000
+npm test        # run logic + data-layer tests
 ```
+
+The app starts with seed data (3 zones, 30 households, 2 drivers, 1 admin, ~10 weeks of history).
+Use the orange **DEV** tab on the right edge to switch between customer, driver and admin, or to reset the data.
+Phone verification is stubbed: the code is shown on screen and logged in Admin → Sent messages.
