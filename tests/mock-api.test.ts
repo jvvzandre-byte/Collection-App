@@ -68,4 +68,32 @@ describe("mock data layer", () => {
     expect(dash.customers).toBe(30);
     expect(dash.weekly).toHaveLength(12);
   });
+
+  it("customers are weekly only: start, skip (not on the day), stop", async () => {
+    const { devCode } = await api.requestOtp("0825550000");
+    await api.signUp({ name: "Weekly Person", phone: "0825550000", code: devCode, street: "3 Week St", suburb: "Newlands", consent: true });
+    await api.setPlan("weekly");
+    expect((await api.getMyHome()).subscription?.status).toBe("pending");
+
+    await api.devSwitchUser("u-c01");
+    const home = await api.getMyHome();
+    expect(home.subscription?.frequency).toBe("weekly");
+    // Every upcoming zone day is booked unless skipped.
+    expect(home.upcoming.every((d) => d.scheduled || d.skipped)).toBe(true);
+    const next = home.upcoming.find((d) => d.date > api.today() && d.scheduled)!;
+    await api.skipCollection(next.date, true);
+    expect((await api.getMyHome()).upcoming.find((d) => d.date === next.date)?.skipped).toBe(true);
+    await expect(api.skipCollection(api.today(), true)).rejects.toThrow();
+
+    await api.setPlan(null);
+    expect((await api.getMyHome()).subscription).toBeNull();
+    expect("createCollectionRequest" in api).toBe(false);
+  });
+
+  it("seed has only weekly plans and no customer one-off requests", async () => {
+    await api.devSwitchUser("u-admin");
+    const rows = await api.getCustomers();
+    expect(rows.every((r) => !r.plan || r.plan.frequency === "weekly")).toBe(true);
+    expect((await api.getRequestQueue()).every((q) => q.kind === "plan")).toBe(true);
+  });
 });

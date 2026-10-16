@@ -346,14 +346,13 @@ export const mockApi: DataApi = {
     const startDate = nextWeekday(addDays(today(), 1), zone.collectionDay);
     if (!frequency) {
       d.subscriptions = d.subscriptions.filter((s) => s.userId !== user.id);
-      audit(user, "plan.cancel", `${user.name} stopped their standing pickup`);
-    } else if (existing && existing.status === "active") {
-      if (existing.frequency !== frequency) Object.assign(existing, { frequency, startDate });
-      audit(user, "plan.change", `${user.name} → ${frequency}`);
+      audit(user, "plan.cancel", `${user.name} stopped their weekly pickup`);
+    } else if (existing && (existing.status === "active" || existing.status === "pending")) {
+      return; // already on (or waiting for) a weekly pickup
     } else {
       d.subscriptions = d.subscriptions.filter((s) => s.userId !== user.id);
       d.subscriptions.push({ id: uid("s"), userId: user.id, frequency, startDate, status: "pending", skipped: [], createdAt: now() });
-      audit(user, "plan.request", `${user.name} asked for a ${frequency} pickup`);
+      audit(user, "plan.request", `${user.name} asked for a weekly pickup`);
     }
     save();
   },
@@ -362,30 +361,8 @@ export const mockApi: DataApi = {
     const user = requireRole("customer");
     const sub = load().subscriptions.find((s) => s.userId === user.id);
     if (!sub || !planCovers(sub, date)) throw new Error("That date isn't on your plan.");
-    if (date < today()) throw new Error("You can't change a past collection.");
+    if (date <= today()) throw new Error("Skips close the day before collection.");
     sub.skipped = skip ? [...new Set([...sub.skipped, date])] : sub.skipped.filter((x) => x !== date);
-    save();
-  },
-
-  async createCollectionRequest({ date, note }) {
-    const user = requireRole("customer");
-    const d = load();
-    const zone = zoneById(addressOf(user.id)?.zoneId);
-    if (!zone) throw new Error("Your area isn't served yet.");
-    if (weekdayOf(date) !== zone.collectionDay || date <= today()) throw new Error("Pick one of your zone's upcoming collection days. Same-day requests aren't possible.");
-    if (d.requests.some((r) => r.userId === user.id && r.date === date && (r.status === "pending" || r.status === "approved")))
-      throw new Error("You've already asked for this date.");
-    const req: CollectionRequest = { id: uid("req"), userId: user.id, date, status: "pending", note: note?.trim() || undefined, createdAt: now() };
-    d.requests.push(req);
-    save();
-    return clone(req);
-  },
-
-  async cancelCollectionRequest(id) {
-    const user = requireRole("customer");
-    const req = load().requests.find((r) => r.id === id && r.userId === user.id);
-    if (!req) throw new Error("Request not found.");
-    req.status = "cancelled";
     save();
   },
 
@@ -979,7 +956,7 @@ export const mockApi: DataApi = {
     if (!u || u.role !== "customer") throw new Error("Customer not found.");
     if (!frequency) {
       d.subscriptions = d.subscriptions.filter((s) => s.userId !== userId);
-      notify(u, "Your standing pickup has been stopped. You can still book one-off collections in the app.");
+      notify(u, "Your weekly pickup has been stopped. You can restart it in the app any time.");
     } else {
       if (!zone) throw new Error("This customer's suburb isn't in a zone yet.");
       const startDate = nextWeekday(addDays(today(), 1), zone.collectionDay);

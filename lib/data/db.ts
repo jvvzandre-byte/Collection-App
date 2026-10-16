@@ -24,4 +24,5 @@ export interface DB {
   otps: Record<string, string>;
 }
 
-export const DB_VERSION = 1;
+/** Bump when the seed or shape changes; browsers with an older copy reseed. */
+export const DB_VERSION = 2;

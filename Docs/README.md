@@ -14,7 +14,7 @@ The goal is growth: reach more households, keep them active, and use the draw as
 
 1. A household signs up and enters their address.
 2. The app matches the address to a **zone** and tells them their **collection day** (for example, Zone A = Tuesdays).
-3. The household opts in for a collection, or sets up a standing weekly/fortnightly pickup.
+3. The household starts a weekly pickup (confirmed by the team). Collection is weekly only; they can skip any week.
 4. On collection day, a driver follows the route, weighs the material at the kerb and records the accepted kg.
 5. Each accepted kg becomes one draw entry for that month.
 6. After month end, the admin runs the draw. 5 different vouchers go to 5 distinct winners.
@@ -38,7 +38,7 @@ Collection is free for customers. Their incentive is the chance to win.
 ### MVP
 - Sign-up and login with phone verification
 - Address capture and zone matching (suburb list), with a waiting list for areas not yet served
-- Collection opt-in and standing weekly/fortnightly pickups with a skip button
+- Weekly pickups only (no one-off bookings), with a skip button
 - Admin: zones, collection days, driver assignment per run, request queue, exceptions
 - Driver view: route list, collected / rejected / missed, kg entry
 - Entries ledger, monthly prize setup and draw tool with audit record
@@ -99,7 +99,7 @@ The app is built against a **data-access layer** with an in-memory/localStorage 
 
 ```
 getZones()
-createCollectionRequest(input)
+setPlan("weekly")
 assignDriver(runId, driverId)
 markCollected(stopId, kg)
 runDraw(month)

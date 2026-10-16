@@ -14,10 +14,10 @@ export class AccessError extends Error {}
 
 export interface UpcomingDay {
   date: ISODate;
-  /** On the customer's plan or an approved one-off. */
+  /** On the customer's weekly plan (not skipped) or an admin-booked extra collection. */
   scheduled: boolean;
   skipped: boolean;
-  /** A one-off request exists for this date. */
+  /** An admin-booked extra collection on this date. */
   request?: CollectionRequest;
 }
 
@@ -205,8 +205,6 @@ export interface DataApi {
   getMyHome(): Promise<CustomerHome>;
   setPlan(frequency: Frequency | null): Promise<void>;
   skipCollection(date: ISODate, skip: boolean): Promise<void>;
-  createCollectionRequest(input: { date: ISODate; note?: string }): Promise<CollectionRequest>;
-  cancelCollectionRequest(id: string): Promise<void>;
   getMyDraw(): Promise<CustomerDraw>;
   updateProfile(input: { name: string }): Promise<void>;
 

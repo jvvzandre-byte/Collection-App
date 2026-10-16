@@ -32,7 +32,7 @@ export default function Customers() {
 
   const exportCsv = () => download(`kilo-customers-${api.today()}.csv`, toCsv(rows.map((r) => ({
     name: r.user.name, phone: r.user.phone, street: r.address?.street, suburb: r.address?.suburb, zone: r.zone?.code ?? "waitlist",
-    plan: r.plan ? `${r.plan.frequency} (${r.plan.status})` : "one-offs", status: r.user.status ?? "active", active_this_month: r.active ? "yes" : "no",
+    weekly_pickup: r.plan ? r.plan.status : "off", status: r.user.status ?? "active", active_this_month: r.active ? "yes" : "no",
     kg_this_month: r.kgThisMonth, entries_this_month: r.entriesThisMonth, lifetime_kg: r.lifetimeKg, last_collection: r.lastCollection ?? "",
   }))));
 
@@ -52,7 +52,7 @@ export default function Customers() {
       </div>
       <Panel>
         {!data ? <div className="h-64 animate-pulse rounded-2xl bg-night-2" /> : (
-          <ATable head={["Household", "Address", "Zone", "Plan", "This month", "Entries", "All time", "Last collection"]}>
+          <ATable head={["Household", "Address", "Zone", "Pickup", "This month", "Entries", "All time", "Last collection"]}>
             {rows.map((r) => (
               <tr key={r.user.id} onClick={() => router.push(`/admin/customers/view?id=${r.user.id}`)} className="cursor-pointer [&:hover_td]:bg-night-3">
                 <td>
@@ -66,7 +66,7 @@ export default function Customers() {
                 </td>
                 <td className="text-fog-2">{r.address?.street}, {r.address?.suburb}</td>
                 <td>{r.zone ? `Zone ${r.zone.code}` : <Tag tone="warn">Waitlist</Tag>}</td>
-                <td>{r.plan ? <Tag tone={r.plan.status === "active" ? "muted" : r.plan.status === "pending" ? "cool" : "hot"}>{r.plan.frequency}{r.plan.status !== "active" ? ` · ${r.plan.status}` : ""}</Tag> : <span className="text-fog-3">One-offs</span>}</td>
+                <td>{r.plan ? <Tag tone={r.plan.status === "active" ? "muted" : r.plan.status === "pending" ? "cool" : "hot"}>{r.plan.status === "active" ? "weekly" : r.plan.status}</Tag> : <span className="text-fog-3">Off</span>}</td>
                 <td className="tabular">{kg(r.kgThisMonth)} {r.active && <span className="ml-1 inline-block size-1.5 rounded-full bg-[#7fdca6]" title="Active" />}</td>
                 <td className="tabular">{r.entriesThisMonth}</td>
                 <td className="tabular text-fog-2">{kg(r.lifetimeKg)}</td>

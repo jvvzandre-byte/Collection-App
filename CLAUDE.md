@@ -23,6 +23,8 @@ Product spec: `Docs/README.md`. UI references: `Docs/Admin UI.png` (admin, dark)
 - The draw runs in the browser for development only. It must move server-side with Supabase.
 
 ## Rules (source of truth, keep in sync with `/rules` page and tests)
+- Collection is **weekly only**. Customers start or stop a weekly pickup and can skip a week up to the day before.
+  No one-off or fortnightly bookings by customers. Admins can still add an extra collection (reschedule, add to run).
 - Driver records kg at the kerb to 1 decimal. Only **accepted** (collected) kg counts; rejected/missed count nothing.
 - Optional per-collection cap (`settings.kgCapPerCollection`, TBC, default 50).
 - Monthly accepted kg per customer is summed (in tenths, no float drift) then **rounded down** to whole entries.

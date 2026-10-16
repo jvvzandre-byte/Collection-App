@@ -55,14 +55,15 @@ export interface WaitlistEntry {
   createdAt: string;
 }
 
-export type Frequency = "weekly" | "fortnightly";
+/** Collections are weekly only. Kept as a type so another rhythm can be added later. */
+export type Frequency = "weekly";
 
-/** A standing pickup. */
+/** A household's weekly pickup. Customers can skip individual weeks. */
 export interface Subscription {
   id: string;
   userId: string;
   frequency: Frequency;
-  /** First collection date; fortnightly plans count from here. */
+  /** First collection date; the plan repeats every 7 days from here. */
   startDate: ISODate;
   status: "pending" | "active" | "paused" | "declined";
   /** Dates the customer has skipped. */
@@ -70,7 +71,10 @@ export interface Subscription {
   createdAt: string;
 }
 
-/** A one-off opt-in for a specific collection date. */
+/**
+ * An extra collection on a specific date, booked by an admin (a reschedule after a missed stop,
+ * or a household added to a run). Customers can't book these themselves: collection is weekly only.
+ */
 export interface CollectionRequest {
   id: string;
   userId: string;

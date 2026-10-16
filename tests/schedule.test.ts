@@ -20,14 +20,16 @@ describe("schedule", () => {
     expect(upcomingCollectionDays(zone, "2026-10-20", 1)).toEqual(["2026-10-20"]);
   });
 
-  it("weekly and fortnightly plans", () => {
+  it("weekly plans cover every zone day from the start date", () => {
+    expect(planCovers(sub("weekly"), "2026-10-06")).toBe(true);
     expect(planCovers(sub("weekly"), "2026-10-13")).toBe(true);
-    expect(planCovers(sub("fortnightly"), "2026-10-13")).toBe(false);
-    expect(planCovers(sub("fortnightly"), "2026-10-20")).toBe(true);
+    expect(planCovers(sub("weekly"), "2026-10-20")).toBe(true);
+    expect(planCovers(sub("weekly"), "2026-10-14")).toBe(false);
     expect(planCovers(sub("weekly"), "2026-09-29")).toBe(false);
+    expect(planCovers({ ...sub("weekly"), status: "pending" }, "2026-10-13")).toBe(false);
   });
 
-  it("skips and one-off requests", () => {
+  it("skips and admin-booked extra collections", () => {
     expect(isDue("u", "2026-10-13", [sub("weekly", ["2026-10-13"])], [])).toBe(false);
     expect(isDue("u", "2026-10-13", [], [{ id: "r", userId: "u", date: "2026-10-13", status: "approved", createdAt: "" }])).toBe(true);
     expect(isDue("u", "2026-10-13", [], [{ id: "r", userId: "u", date: "2026-10-13", status: "pending", createdAt: "" }])).toBe(false);

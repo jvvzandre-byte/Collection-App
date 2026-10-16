@@ -32,9 +32,10 @@ describe("admin: customers", () => {
     expect((await api.getWaitlist()).length).toBe(before + 1);
   });
 
-  it("admin sets a plan directly (active, no queue)", async () => {
-    await api.adminSetPlan("u-c09", "fortnightly");
-    const c = await api.getCustomer("u-c09");
+  it("admin confirms a weekly pickup directly (active, no queue)", async () => {
+    expect((await api.getCustomer("u-c10")).row.plan?.status).toBe("pending");
+    await api.adminSetPlan("u-c10", "weekly");
+    const c = await api.getCustomer("u-c10");
     expect(c.row.plan?.status).toBe("active");
     expect(c.upcoming.some((d) => d.scheduled)).toBe(true);
   });
