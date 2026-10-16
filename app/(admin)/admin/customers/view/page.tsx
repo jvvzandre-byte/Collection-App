@@ -8,6 +8,7 @@ import { CustomerForm } from "@/components/admin/CustomerForm";
 import { ABtn, AError, ATable, Avatar, ConfirmBtn, Empty, PageHead, Panel, Seg, StatCard, Tag } from "@/components/admin/ui";
 import { IconArrowLeft } from "@/components/Icons";
 import { api } from "@/lib/data";
+import { placeUrl } from "@/lib/maps/links";
 import { useData } from "@/lib/data/hooks";
 import { WEEKDAYS, formatDay, formatMonth } from "@/lib/logic/dates";
 import { kg, rands } from "@/lib/format";
@@ -120,6 +121,14 @@ function CustomerDetailView() {
           <Panel title="Address">
             <p className="text-fog">{c.row.address?.street}</p>
             <p className="text-fog-2">{c.row.address?.suburb}</p>
+            {c.row.address && (
+              <p className="mt-2 flex flex-wrap items-center gap-2 text-xs">
+                {c.row.address.geo === "approximate" && <Tag tone="warn">Approximate location</Tag>}
+                {c.row.address.geo === "exact" && <Tag tone="good">Exact location</Tag>}
+                {!c.row.address.geo && <Tag>No location</Tag>}
+                <a href={placeUrl(c.row.address)} target="_blank" rel="noopener" className="text-[#aab3ff] hover:underline">Open in Google Maps ↗</a>
+              </p>
+            )}
             {u.note && <p className="mt-3 rounded-xl bg-[#3a3326] px-3 py-2 text-sm text-[#f0c674]">{u.note}</p>}
             <p className="mt-3 text-xs text-fog-3">Joined {new Date(u.createdAt).toLocaleDateString("en-ZA", { dateStyle: "medium" })}{u.consentAt ? ` · consent ${new Date(u.consentAt).toLocaleDateString("en-ZA")}` : ""}</p>
           </Panel>

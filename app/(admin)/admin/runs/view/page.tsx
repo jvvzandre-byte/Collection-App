@@ -4,10 +4,12 @@ import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { Suspense, useState } from "react";
 import { DriverSelect } from "@/components/admin/DriverSelect";
+import { RunMap } from "@/components/maps/RunMap";
 import { download } from "@/components/admin/download";
 import { ABtn, AError, ConfirmBtn, Empty, PageHead, Panel, StatCard, Tag, aInput } from "@/components/admin/ui";
 import { IconArrowLeft, IconChevronDown, IconUndo, IconX } from "@/components/Icons";
 import { api, type StopView } from "@/lib/data";
+import type { RouteProviderId } from "@/lib/types";
 import { useData } from "@/lib/data/hooks";
 import { toCsv } from "@/lib/csv";
 import { formatDay } from "@/lib/logic/dates";
@@ -61,6 +63,13 @@ function RunDetail() {
         <StatCard label="Rejected" value={count("rejected")} />
         <StatCard label="Missed" value={count("missed")} />
         <StatCard label="Accepted" value={kg(run.collectedKg)} />
+      </div>
+
+      <div className="mb-4 grid gap-4 xl:grid-cols-[1fr_380px]">
+        <Panel title="Route map" action={<span className="text-sm text-fog-2 tabular">≈ {run.routeKm} km straight-line</span>}>
+          <RunMap stops={run.stops} depot={run.depot} height={400} />
+        </Panel>
+        <RoutePanel runId={run.id} locked={done} openStops={count("pending")} act={act} />
       </div>
 
       <Panel title="Stops" action={!done && (
@@ -132,4 +141,38 @@ function RemoveBtn({ onConfirm }: { onConfirm: () => void }) {
   return armed
     ? <ABtn size="sm" variant="hot" onClick={onConfirm} onBlur={() => setArmed(false)} autoFocus>Remove &amp; notify</ABtn>
     : <button className="grid size-8 place-items-center rounded-full text-fog-3 hover:bg-night-3 hover:text-[#ff8db4]" onClick={() => setArmed(true)} aria-label="Remove stop"><IconX size={15} /></button>;
+}
+
+function RoutePanel({ runId, locked, openStops, act }: { runId: string; locked: boolean; openStops: number; act: (fn: () => Promise<unknown>) => void }) {
+  const { data: providers } = useData(() => api.getRouteProviders());
+  const [choice, setChoice] = useState<RouteProviderId>("nearest");
+  const [result, setResult] = useState<string | null>(null);
+  const run = () => act(async () => {
+    const r = await api.optimiseRun(runId, choice);
+    setResult(r.afterKm < r.beforeKm ? `Shorter by ${(r.beforeKm - r.afterKm).toFixed(1)} km (${r.beforeKm} → ${r.afterKm} km).` : `Already in a good order (${r.afterKm} km).`);
+  });
+  return (
+    <Panel title="Optimise route">
+      <ul className="space-y-1.5" role="radiogroup" aria-label="Route method">
+        {providers?.map((p) => (
+          <li key={p.id}>
+            <button type="button" role="radio" aria-checked={choice === p.id} disabled={!p.available} onClick={() => setChoice(p.id)}
+              className={`inset-row flex w-full items-start gap-3 px-3 py-2.5 text-left disabled:cursor-not-allowed ${choice === p.id ? "border-cool/70" : ""} ${p.available ? "" : "opacity-60"}`}>
+              <span className={`mt-1 grid size-4 shrink-0 place-items-center rounded-full border-2 ${choice === p.id ? "border-cool" : "border-white/25"}`}>{choice === p.id && <span className="size-2 rounded-full bg-cool" />}</span>
+              <span className="min-w-0">
+                <span className="flex items-center gap-2 text-sm">{p.label}{!p.available && <Tag tone="warn">Placeholder</Tag>}</span>
+                <span className="block text-xs text-fog-3">{p.description}</span>
+                {p.reason && <span className="mt-1 block text-xs text-[#f0c674]">{p.reason}</span>}
+              </span>
+            </button>
+          </li>
+        ))}
+      </ul>
+      <div className="mt-4 flex items-center gap-3">
+        <ABtn variant="white" disabled={locked || !openStops} onClick={run}>Optimise {openStops} open stop{openStops === 1 ? "" : "s"}</ABtn>
+        {result && <span className="text-xs text-[#7fdca6]">{result}</span>}
+      </div>
+      <p className="mt-3 text-xs text-fog-3">Done stops keep their place. Customers aren&rsquo;t notified about order changes. You can still move stops with the arrows.</p>
+    </Panel>
+  );
 }

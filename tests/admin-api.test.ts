@@ -130,3 +130,38 @@ describe("admin: phone formatting", () => {
     await expect(api.saveStaff({ role: "driver", name: "Dup", phone: "+27723334444" })).rejects.toThrow(/number/);
   });
 });
+
+describe("admin: route ordering", () => {
+  it("every seeded address has an approximate location", async () => {
+    const run = await nextRunWithStops();
+    expect(run.stops.every((s) => s.lat != null && s.lng != null && s.geo === "approximate")).toBe(true);
+    expect(run.routeKm).toBeGreaterThan(0);
+  });
+
+  it("nearest-next never makes the run longer and keeps done stops first", async () => {
+    const run = await nextRunWithStops();
+    await api.markCollected(run.stops[1].id, 5);
+    const doneId = run.stops[1].id;
+    const { beforeKm, afterKm } = await api.optimiseRun(run.id, "nearest");
+    expect(afterKm).toBeLessThanOrEqual(beforeKm);
+    const after = await api.getRun(run.id);
+    expect(after.stops[0].id).toBe(doneId);
+    expect(after.stops.length).toBe(run.stops.length);
+  });
+
+  it("google providers are placeholders until configured", async () => {
+    const run = await nextRunWithStops();
+    const providers = await api.getRouteProviders();
+    expect(providers.find((p) => p.id === "nearest")?.available).toBe(true);
+    expect(providers.filter((p) => p.id !== "nearest").every((p) => !p.available && p.reason)).toBe(true);
+    await expect(api.optimiseRun(run.id, "google-routes")).rejects.toThrow(/isn't available/);
+    await expect(api.optimiseRun(run.id, "google-optimization")).rejects.toThrow(/server/);
+  });
+
+  it("new households get a location from their suburb; unknown suburbs get none", async () => {
+    const a = await api.saveCustomer({ name: "Geo One", phone: "0821230001", street: "1 Pin St", suburb: "Kenilworth" });
+    const b = await api.saveCustomer({ name: "Geo Two", phone: "0821230002", street: "1 Pin St", suburb: "Atlantis" });
+    expect((await api.getCustomer(a.id)).row.address?.geo).toBe("approximate");
+    expect((await api.getCustomer(b.id)).row.address?.lat).toBeUndefined();
+  });
+});

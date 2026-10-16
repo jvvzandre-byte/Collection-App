@@ -115,7 +115,7 @@ Swapping the backend then means writing a second implementation of the same func
 | Admin panel | Same codebase, desktop routes, role-based access |
 | Data (now) | Mock store persisted to localStorage, loaded with seed data |
 | Data (later) | Supabase (Postgres, auth, storage, row-level security) |
-| Maps | Google Maps or Mapbox (placeholder until later) |
+| Maps | Google Maps. Now: Navigate links, schematic run map, built-in "nearest stop next" ordering. Later: live map, Places autocomplete, Routes / Route Optimization |
 | Notifications | WhatsApp Business API or SMS (stubbed, logged to a "sent messages" screen) |
 | Hosting | Vercel + Supabase |
 

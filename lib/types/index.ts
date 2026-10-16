@@ -33,6 +33,10 @@ export interface Address {
   suburb: string;
   /** null when the suburb is not served yet (customer sits on the waiting list). */
   zoneId: string | null;
+  /** Map position. "approximate" = suburb centre (placeholder geocoder); "exact" = geocoded address. */
+  lat?: number;
+  lng?: number;
+  geo?: "approximate" | "exact";
 }
 
 export interface Zone {
@@ -180,4 +184,14 @@ export interface Settings {
   activeRule: "calendar_month";
   /** Day of month the draw runs for the previous month. (TBC, suggested 1) */
   drawDay: number;
+  /** Where every run starts and ends. */
+  depot: { label: string; lat: number; lng: number };
 }
+
+/**
+ * How a run's stops get put in order.
+ * - nearest: built in, straight-line "nearest stop next" (works now, free)
+ * - google-routes: Google Routes API, road-aware, one vehicle, ~25 stops per request (needs a browser key)
+ * - google-optimization: Google Route Optimization API, multi-vehicle, capacity, time windows (needs a server)
+ */
+export type RouteProviderId = "nearest" | "google-routes" | "google-optimization";

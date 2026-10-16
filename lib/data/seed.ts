@@ -4,6 +4,7 @@ import { buildSnapshot, roundKg } from "@/lib/logic/entries";
 import { rng, selectWinners } from "@/lib/logic/draw";
 import { isDue } from "@/lib/logic/schedule";
 import { DB_VERSION, type DB } from "./db";
+import { DEFAULT_DEPOT, approximateLocation } from "./geo";
 
 // Deterministic demo data: 3 zones, 30 households, 2 drivers, 1 admin,
 // ~10 weeks of collection history ending today, plus a finished draw for
@@ -61,7 +62,7 @@ export function createSeed(today: ISODate = toISODate(new Date())): DB {
     draws: [],
     notifications: [],
     audit: [],
-    settings: { kgCapPerCollection: 50, redrawAfterDays: 14, activeRule: "calendar_month", drawDay: 1 },
+    settings: { kgCapPerCollection: 50, redrawAfterDays: 14, activeRule: "calendar_month", drawDay: 1, depot: { ...DEFAULT_DEPOT } },
     otps: {},
   };
 
@@ -74,7 +75,9 @@ export function createSeed(today: ISODate = toISODate(new Date())): DB {
       id, role: "customer", name, phone: `+27 8${2 + (i % 3)} ${100 + i * 7} ${String(1000 + i * 137).slice(-4)}`,
       phoneVerified: true, createdAt: iso(joined), consentAt: iso(joined),
     });
-    db.addresses.push({ id: `a-${id}`, userId: id, street: `${3 + Math.floor(r() * 140)} ${pick(STREETS)}`, suburb: pick(zone.suburbs), zoneId: zone.id });
+    const street = `${3 + Math.floor(r() * 140)} ${pick(STREETS)}`;
+    const suburb = pick(zone.suburbs);
+    db.addresses.push({ id: `a-${id}`, userId: id, street, suburb, zoneId: zone.id, ...approximateLocation(street, suburb) });
 
     const firstDay = nextWeekday(addDays(today, -70), zone.collectionDay);
     if (i % 10 === 9) {

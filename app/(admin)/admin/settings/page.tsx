@@ -6,15 +6,17 @@ import { ABtn, AField, ConfirmBtn, PageHead, Panel, Tag, aInput } from "@/compon
 import { api } from "@/lib/data";
 import { useData } from "@/lib/data/hooks";
 import { toCsv } from "@/lib/csv";
+import { mapsConfigured } from "@/lib/config";
 import type { Settings } from "@/lib/types";
 
 export default function SettingsPage() {
   const { data } = useData(() => api.getSettings());
   return (
     <div className="rise">
-      <PageHead title="Settings" sub="Competition rules, exports and demo data." />
+      <PageHead title="Settings" sub="Competition rules, maps and routing, exports and demo data." />
       <div className="grid gap-4 lg:grid-cols-2">
         {data && <RulesPanel s={data} />}
+        {data && <IntegrationsPanel s={data} />}
         <ExportsPanel />
         <DemoPanel />
       </div>
@@ -81,6 +83,49 @@ function DemoPanel() {
     <Panel title="Demo data" action={<Tag tone="cool">Development</Tag>}>
       <p className="text-sm text-fog-2">Data lives in this browser only until Supabase goes in. Resetting reloads the seed: 3 zones, 30 households, 2 drivers and about 10 weeks of history.</p>
       <div className="mt-4"><ConfirmBtn label="Reset demo data" confirm="Yes, reset everything" onConfirm={() => api.devReset()} /></div>
+    </Panel>
+  );
+}
+
+function IntegrationsPanel({ s }: { s: Settings }) {
+  const [depot, setDepot] = useState({ label: s.depot.label, lat: String(s.depot.lat), lng: String(s.depot.lng) });
+  const [msg, setMsg] = useState<string | null>(null);
+  const keyed = mapsConfigured();
+  const saveDepot = async () => {
+    const lat = Number(depot.lat), lng = Number(depot.lng);
+    if (!(lat >= -90 && lat <= 90 && lng >= -180 && lng <= 180) || !depot.label.trim()) return setMsg("Enter a name and valid coordinates.");
+    await api.updateSettings({ depot: { label: depot.label.trim(), lat, lng } });
+    setMsg("Depot saved. Route lengths and ordering use it from now on.");
+  };
+  const rows: [string, string, "good" | "warn" | "muted"][] = [
+    ["Navigate buttons (Google Maps links)", "Live: no key needed", "good"],
+    ["Route ordering: nearest stop next", "Live: built in", "good"],
+    ["Run maps", keyed ? "Key found: live map not wired yet" : "Schematic until a key is added", "warn"],
+    ["Address autocomplete + exact locations", keyed ? "Key found: not wired yet" : "Suburb-centre placeholder", "warn"],
+    ["Route ordering: Google Routes", keyed ? "Key found: not wired yet" : "Needs a key", "warn"],
+    ["Route ordering: Google Route Optimization", "Needs a server (Supabase)", "muted"],
+  ];
+  return (
+    <Panel title="Maps & routing" action={<Tag tone={keyed ? "good" : "warn"}>{keyed ? "Google key found" : "Google not connected"}</Tag>}>
+      <ul className="space-y-1.5">
+        {rows.map(([name, status, tone]) => (
+          <li key={name} className="inset-row flex items-center justify-between gap-3 px-3 py-2 text-sm"><span>{name}</span><Tag tone={tone}>{status}</Tag></li>
+        ))}
+      </ul>
+      {!keyed && (
+        <ol className="mt-4 list-decimal space-y-1 pl-5 text-xs leading-relaxed text-fog-3">
+          <li>Google Cloud: create a project, attach billing, enable Maps JavaScript, Places, Geocoding and Routes APIs.</li>
+          <li>Create an API key restricted to your site (HTTP referrers) and to those APIs.</li>
+          <li>GitHub repo → Settings → Secrets and variables → Actions → add <code className="text-fog-2">GOOGLE_MAPS_KEY</code>.</li>
+        </ol>
+      )}
+      <p className="mb-2 mt-5 text-xs uppercase tracking-wider text-fog-3">Depot (routes start and end here)</p>
+      <div className="grid grid-cols-[1fr_110px_110px] gap-2">
+        <input className={aInput} value={depot.label} onChange={(e) => setDepot({ ...depot, label: e.target.value })} aria-label="Depot name" />
+        <input className={aInput} value={depot.lat} onChange={(e) => setDepot({ ...depot, lat: e.target.value })} aria-label="Latitude" inputMode="decimal" />
+        <input className={aInput} value={depot.lng} onChange={(e) => setDepot({ ...depot, lng: e.target.value })} aria-label="Longitude" inputMode="decimal" />
+      </div>
+      <div className="mt-3 flex items-center gap-3"><ABtn size="sm" variant="white" onClick={saveDepot}>Save depot</ABtn>{msg && <span className="text-xs text-fog-2">{msg}</span>}</div>
     </Panel>
   );
 }
