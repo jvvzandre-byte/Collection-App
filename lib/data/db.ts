@@ -25,4 +25,4 @@ export interface DB {
 }
 
 /** Bump when the seed or shape changes; browsers with an older copy reseed. */
-export const DB_VERSION = 2;
+export const DB_VERSION = 3;

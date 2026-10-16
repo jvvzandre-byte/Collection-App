@@ -11,6 +11,9 @@ import {
   type StopView, type UpcomingDay,
 } from "./api";
 import { DB_VERSION, type DB } from "./db";
+import { approximateLocation } from "./geo";
+import { mapsConfigured } from "@/lib/config";
+import { nearestNextOrder, routeLengthKm } from "@/lib/logic/route";
 import { createSeed } from "./seed";
 
 // Mock backend: one JSON document in localStorage. Development only —
@@ -149,7 +152,7 @@ function syncStops(run: Run) {
 function stopView(c: Collection): StopView {
   const u = userById(c.userId)!;
   const a = addressOf(c.userId);
-  return { ...c, customerName: u.name, phone: u.phone, street: a?.street ?? "", suburb: a?.suburb ?? "" };
+  return { ...c, customerName: u.name, phone: u.phone, street: a?.street ?? "", suburb: a?.suburb ?? "", lat: a?.lat ?? null, lng: a?.lng ?? null, geo: a?.geo ?? null };
 }
 
 function runView(run: Run, withStops = true): RunView {
@@ -161,6 +164,8 @@ function runView(run: Run, withStops = true): RunView {
     driver: clone(userById(run.driverId)),
     stops: withStops ? stops.map(stopView) : [],
     stopCount: stops.length,
+    depot: clone(load().settings.depot),
+    routeKm: +routeLengthKm(load().settings.depot, stops.map((c) => ({ id: c.id, lat: addressOf(c.userId)?.lat ?? null, lng: addressOf(c.userId)?.lng ?? null }))).toFixed(1),
     collectedKg: roundKg(stops.reduce((s, c) => s + (c.status === "collected" ? c.kg ?? 0 : 0), 0)),
   };
 }
@@ -273,7 +278,7 @@ export const mockApi: DataApi = {
     const zone = matchZone(input.suburb, d.zones);
     const user: User = { id: uid("u"), role: "customer", name: input.name.trim(), phone: normalisePhone(input.phone), phoneVerified: true, createdAt: now(), consentAt: now() };
     d.users.push(user);
-    d.addresses.push({ id: uid("a"), userId: user.id, street: input.street.trim(), suburb: input.suburb.trim(), zoneId: zone?.id ?? null });
+    d.addresses.push({ id: uid("a"), userId: user.id, street: input.street.trim(), suburb: input.suburb.trim(), zoneId: zone?.id ?? null, ...approximateLocation(input.street, input.suburb) });
     if (!zone) d.waitlist.push({ id: uid("w"), userId: user.id, name: user.name, phone: user.phone, suburb: input.suburb.trim(), createdAt: now() });
     delete d.otps[normalisePhone(input.phone)];
     sessionUserId = user.id;
@@ -925,7 +930,7 @@ export const mockApi: DataApi = {
       const addr = d.addresses.find((a) => a.userId === user.id);
       const moved = !addr || key(addr.street) !== key(street) || normaliseSuburb(addr.suburb) !== normaliseSuburb(suburb);
       Object.assign(user, { name, phone: normalisePhone(input.phone), note: input.note?.trim() || undefined });
-      if (addr) Object.assign(addr, { street, suburb, zoneId: zone?.id ?? null });
+      if (addr) Object.assign(addr, { street, suburb, zoneId: zone?.id ?? null, ...(moved ? approximateLocation(street, suburb) : {}) });
       if (moved) {
         const oldZone = addr ? zoneById(addr.zoneId) : null;
         // A new zone means a new collection day: restart the plan from the next one.
@@ -939,7 +944,7 @@ export const mockApi: DataApi = {
     } else {
       user = { id: uid("u"), role: "customer", name, phone: normalisePhone(input.phone), phoneVerified: false, createdAt: now(), status: "active", note: input.note?.trim() || undefined };
       d.users.push(user);
-      d.addresses.push({ id: uid("a"), userId: user.id, street, suburb, zoneId: zone?.id ?? null });
+      d.addresses.push({ id: uid("a"), userId: user.id, street, suburb, zoneId: zone?.id ?? null, ...approximateLocation(street, suburb) });
       if (!zone) d.waitlist.push({ id: uid("w"), userId: user.id, name, phone: user.phone, suburb, createdAt: now() });
       notify(user, `Hi ${name.split(" ")[0]}, we've set up your Kilo recycling account. Open the app to confirm your number and accept the privacy notice.`, "sms");
       audit(me, "customer.create", `${name} · ${suburb}${zone ? ` → Zone ${zone.code}` : " → waiting list"}`);
@@ -1095,6 +1100,46 @@ export const mockApi: DataApi = {
     notify(u, `Your collection on ${formatDay(c.date, { weekday: "long", day: "numeric", month: "long" })} has been cancelled. Sorry for the change.`);
     audit(me, "run.remove_stop", `${u?.name} · ${c.runId}`);
     save();
+  },
+
+  async getRouteProviders() {
+    requireRole("admin");
+    return [
+      { id: "nearest", label: "Nearest stop next", description: "Built in. Straight-line distance from the depot, one vehicle. Free.", available: true },
+      {
+        id: "google-routes", label: "Google Routes", description: "Road-aware ordering for one vehicle, up to ~25 stops per request.", available: false,
+        reason: mapsConfigured() ? "Placeholder: the Routes API call isn't built yet." : "Needs a Google Maps API key (Settings → Maps & routing).",
+      },
+      {
+        id: "google-optimization", label: "Google Route Optimization", description: "Multiple vehicles, truck capacity, time windows, driver shifts.", available: false,
+        reason: "Placeholder: needs a server-side service account, so it comes with the Supabase move.",
+      },
+    ];
+  },
+
+  async optimiseRun(runId, provider) {
+    const me = requireRole("admin");
+    const d = load();
+    const run = d.runs.find((r) => r.id === runId);
+    if (!run) throw new Error("Run not found.");
+    if (run.status === "completed") throw new Error("Reopen the run first.");
+    const info = (await mockApi.getRouteProviders()).find((p) => p.id === provider);
+    if (!info?.available) throw new Error(`${info?.label ?? provider} isn't available yet. ${info?.reason ?? ""}`.trim());
+    syncStops(run);
+    const stops = d.collections.filter((c) => c.runId === run.id).sort((a, b) => a.order - b.order);
+    const point = (c: Collection) => ({ id: c.id, lat: addressOf(c.userId)?.lat ?? null, lng: addressOf(c.userId)?.lng ?? null });
+    // Stops already done keep their place; only the open ones are re-ordered, starting from the last done stop.
+    const done = stops.filter((c) => c.status !== "pending");
+    const open = stops.filter((c) => c.status === "pending");
+    const lastDone = [...done].reverse().map(point).find((p) => p.lat != null);
+    const from = lastDone ? { lat: lastDone.lat!, lng: lastDone.lng! } : d.settings.depot;
+    const beforeKm = routeLengthKm(d.settings.depot, stops.map(point));
+    const order = nearestNextOrder(from, open.map(point));
+    [...done, ...order.map((id) => open.find((c) => c.id === id)!)].forEach((c, i) => (c.order = i));
+    const afterKm = routeLengthKm(d.settings.depot, [...d.collections.filter((c) => c.runId === run.id)].sort((a, b) => a.order - b.order).map(point));
+    audit(me, "run.optimise", `${run.id} · ${info.label} · ${beforeKm.toFixed(1)} → ${afterKm.toFixed(1)} km`);
+    save();
+    return { beforeKm: +beforeKm.toFixed(1), afterKm: +afterKm.toFixed(1) };
   },
 
   async moveStop(stopId, direction) {

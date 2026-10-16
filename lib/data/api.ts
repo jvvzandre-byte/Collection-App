@@ -1,5 +1,6 @@
 import type {
   Audience,
+  RouteProviderId,
   Address, AuditEvent, Collection, CollectionRequest, Draw, Frequency, ISODate, MonthKey, Notification,
   Role, Run, Settings, Subscription, User, Voucher, WaitlistEntry, Zone,
 } from "@/lib/types";
@@ -56,6 +57,9 @@ export interface CustomerDraw {
 export interface StopView extends Collection {
   customerName: string;
   phone: string;
+  lat: number | null;
+  lng: number | null;
+  geo: "approximate" | "exact" | null;
   street: string;
   suburb: string;
 }
@@ -66,6 +70,9 @@ export interface RunView extends Run {
   stops: StopView[];
   stopCount: number;
   collectedKg: number;
+  depot: Settings["depot"];
+  /** Straight-line length of depot → stops in current order → depot, km. */
+  routeKm: number;
 }
 
 export interface DashboardData {
@@ -171,6 +178,15 @@ export interface BroadcastInput {
   body: string;
 }
 
+export interface RouteProviderInfo {
+  id: RouteProviderId;
+  label: string;
+  description: string;
+  available: boolean;
+  /** Why it's unavailable, and what's needed to switch it on. */
+  reason?: string;
+}
+
 export interface SignUpInput {
   name: string;
   phone: string;
@@ -259,6 +275,9 @@ export interface DataApi {
   // admin: run editing
   addStopToRun(runId: string, userId: string): Promise<void>;
   removeStop(stopId: string): Promise<void>;
+  getRouteProviders(): Promise<RouteProviderInfo[]>;
+  /** Re-order a run's open stops. Done stops keep their place at the top. */
+  optimiseRun(runId: string, provider: RouteProviderId): Promise<{ beforeKm: number; afterKm: number }>;
   moveStop(stopId: string, direction: -1 | 1): Promise<void>;
   reopenRun(runId: string): Promise<void>;
 

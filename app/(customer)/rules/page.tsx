@@ -42,6 +42,7 @@ export default function Rules() {
           <h2>Privacy notice (POPIA)</h2>
           <p>
             We collect your name, cellphone number and address to schedule collections, record weights and run the draw.
+            We store an approximate map location for your address so drivers can plan the route; only our team and drivers see it.
             We only message you about collections and prizes. Your details are stored securely and are never sold.
             Winners are shown publicly by first name, surname initial and suburb only.
             You can ask us to see, correct or delete your information at any time.

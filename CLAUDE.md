@@ -13,6 +13,15 @@ Product spec: `Docs/README.md`. UI references: `Docs/Admin UI.png` (admin, dark)
 - `PAGES_BASE_PATH` sets the base path; links via `next/link`/router get it automatically, raw URLs
   (manifest, service worker) must use `process.env.NEXT_PUBLIC_BASE_PATH`.
 
+## Maps & routing
+- Addresses carry `lat`/`lng` + `geo` ("approximate" from the placeholder suburb-centre geocoder in `lib/data/geo.ts`,
+  "exact" once Google Geocoding/Places is wired). Depot is `settings.depot`.
+- Route ordering goes through `api.optimiseRun(runId, provider)`. `nearest` (pure, `lib/logic/route.ts`) works now;
+  `google-routes` (browser key) and `google-optimization` (needs a server, Supabase) are placeholders that report why.
+- `components/maps/RunMap.tsx` draws a schematic until a Google key exists; swap in a Google map with the same props.
+- Navigate buttons use Google Maps URLs (`lib/maps/links.ts`): free, no key. Key: `GOOGLE_MAPS_KEY` Actions secret →
+  `NEXT_PUBLIC_GOOGLE_MAPS_KEY` (`lib/config.ts`).
+
 ## Hard rules
 - **UI code never accesses storage directly.** Screens call `api.*` from `@/lib/data` (interface in `lib/data/api.ts`).
   `lib/data/mock.ts` is the localStorage implementation; Supabase will be a second implementation of the same interface.
