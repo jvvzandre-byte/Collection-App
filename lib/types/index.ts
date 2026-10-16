@@ -18,7 +18,13 @@ export interface User {
   createdAt: string;
   /** POPIA consent timestamp (customers only). */
   consentAt?: string;
+  /** suspended: no collections (customers) / no sign-in or runs (staff). erased: POPIA erasure, details wiped. */
+  status?: "active" | "suspended" | "erased";
+  /** Internal note, admin only. */
+  note?: string;
 }
+
+export type Audience = "all" | "active" | "zone" | "waitlist" | "user";
 
 export interface Address {
   id: string;

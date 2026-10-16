@@ -65,11 +65,11 @@ export function LineChart({ data, unit, color = "#6E7BF2", height = 240 }: { dat
         {ticks.map((t) => (
           <g key={t}>
             <line x1={pad.l} x2={W - pad.r} y1={y(t)} y2={y(t)} stroke="rgb(255 255 255 / .06)" />
-            <text x={pad.l - 10} y={y(t) + 4} textAnchor="end" className="fill-[#6b6b76] text-[11px]">{Math.round(t)}</text>
+            <text x={pad.l - 10} y={y(t) + 4} textAnchor="end" className="fill-fog-3 text-[11px]">{Math.round(t)}</text>
           </g>
         ))}
         {data.map((d, i) => i % step === (data.length - 1) % step && (
-          <text key={i} x={x(i)} y={H - 8} textAnchor="middle" className="fill-[#6b6b76] text-[11px]">{d.label}</text>
+          <text key={i} x={x(i)} y={H - 8} textAnchor="middle" className="fill-fog-3 text-[11px]">{d.label}</text>
         ))}
         {data.map((_, i) => <line key={i} x1={x(i)} x2={x(i)} y1={pad.t} y2={y(0)} stroke="rgb(255 255 255 / .035)" />)}
         <path d={area} fill="url(#area)" />
@@ -78,7 +78,7 @@ export function LineChart({ data, unit, color = "#6E7BF2", height = 240 }: { dat
           <g>
             <line x1={x(hover)} x2={x(hover)} y1={pad.t} y2={y(0)} stroke="rgb(255 255 255 / .25)" strokeDasharray="3 4" />
             <circle cx={x(hover)} cy={y(h.value)} r="10" fill={color} opacity=".25" />
-            <circle cx={x(hover)} cy={y(h.value)} r="5.5" fill={color} stroke="#141418" strokeWidth="2" />
+            <circle cx={x(hover)} cy={y(h.value)} r="5.5" fill={color} stroke="var(--color-night-1)" strokeWidth="2" />
           </g>
         )}
       </svg>

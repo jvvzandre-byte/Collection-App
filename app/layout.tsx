@@ -8,10 +8,10 @@ const onest = Onest({ subsets: ["latin"], variable: "--font-onest", display: "sw
 const instrument = Instrument_Serif({ subsets: ["latin"], weight: "400", style: ["normal", "italic"], variable: "--font-instrument", display: "swap" });
 
 export const metadata: Metadata = {
-  title: { default: "Kerbside", template: "%s · Kerbside" },
+  title: { default: "Kilo · Every kilo counts", template: "%s · Kilo" },
   description: "Free kerbside recycling collection. Every kilogram is an entry into the monthly voucher draw.",
-  applicationName: "Kerbside",
-  appleWebApp: { capable: true, title: "Kerbside", statusBarStyle: "default" },
+  applicationName: "Kilo",
+  appleWebApp: { capable: true, title: "Kilo", statusBarStyle: "default" },
 };
 
 export const viewport: Viewport = {

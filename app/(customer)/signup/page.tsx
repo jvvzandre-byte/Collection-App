@@ -93,7 +93,7 @@ export default function SignUp() {
               <label className="flex gap-3 rounded-2xl bg-card p-4 text-sm leading-relaxed text-ink-2">
                 <input type="checkbox" checked={form.consent} onChange={set("consent")} className="mt-0.5 size-5 shrink-0 accent-[#7179e6]" />
                 <span>
-                  I agree that Kerbside may store my name, number and address to run collections and the draw, as set out in the{" "}
+                  I agree that Kilo may store my name, number and address to run collections and the draw, as set out in the{" "}
                   <Link href="/rules#privacy" className="text-ink underline underline-offset-2">privacy notice</Link> (POPIA).
                 </span>
               </label>

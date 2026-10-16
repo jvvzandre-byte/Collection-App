@@ -1,5 +1,5 @@
 // Minimal offline shell: network first, fall back to cache. Drivers lose signal on routes.
-const CACHE = "kerbside-v2";
+const CACHE = "kilo-v1";
 
 self.addEventListener("install", () => self.skipWaiting());
 self.addEventListener("activate", (e) => e.waitUntil(self.clients.claim()));

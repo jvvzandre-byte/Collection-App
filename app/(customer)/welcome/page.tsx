@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { Logo } from "@/components/Logo";
 import { Mascot } from "@/components/Mascot";
 import { PillCta } from "@/components/ui";
 
@@ -6,7 +7,7 @@ export default function Welcome() {
   return (
     <main className="relative mx-auto flex min-h-dvh max-w-[460px] flex-col overflow-hidden bg-[linear-gradient(180deg,#dfe1fb_0%,#eceaf6_38%,#f7e7c0_100%)] px-6 pb-[max(1.5rem,env(safe-area-inset-bottom))] pt-16 md:my-6 md:min-h-[calc(100dvh-3rem)] md:rounded-[2.5rem]">
       <div className="rise text-center">
-        <p className="text-xs font-semibold uppercase tracking-[.22em] text-lilac-deep">Kerbside</p>
+        <Logo tone="light" size={30} className="justify-center" />
         <h1 className="mt-4 font-display text-[52px] leading-[.98]">Recycling,<br /><em>collected.</em></h1>
         <p className="mx-auto mt-5 max-w-[300px] text-[16px] leading-relaxed text-ink-2">
           Put your bags out on collection day. We weigh them at the kerb, and every kilogram is an entry into the monthly voucher draw.

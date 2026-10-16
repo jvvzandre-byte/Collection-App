@@ -1,4 +1,6 @@
-# Kerbside (Recycling Collection App)
+# Kilo (Recycling Collection App)
+
+Brand: **Kilo**, "Every kilo counts". Logo in `components/Logo.tsx` (scale weight with a cut-out k); app icon `app/icon.svg`.
 
 Product spec: `Docs/README.md`. UI references: `Docs/Admin UI.png` (admin, dark) and `Docs/Mobile UI.png` (customer, light).
 
@@ -35,6 +37,7 @@ Product spec: `Docs/README.md`. UI references: `Docs/Admin UI.png` (admin, dark)
 ## Layout
 - `app/(customer)` welcome, signup, login, rules + `(app)/` home, collections, draw, profile
 - `app/(driver)/driver` route list + `run?id=` stop recording
-- `app/(admin)/admin` overview, runs, requests, exceptions, customers, zones (+waitlist, rule settings), draw, messages
-- Design tokens in `app/globals.css` (`@theme`). Light: paper/ink/lilac/butter. Dark admin: night/fog/hot/cool/electric.
+- `app/(admin)/admin` overview, runs (+`runs/view?id=` editor), requests, exceptions, customers (+`customers/view?id=`),
+  team (drivers + admins), zones (+waitlist), draw, messages (+broadcast), settings (rules, exports, demo reset)
+- Design tokens in `app/globals.css` (`@theme`). Light: paper/ink/lilac/butter. Admin is dark blue: night/fog/hot/cool/electric.
   Fonts: Instrument Serif (display), Onest (UI). Chart colours `#6E7BF2` / `#E6457F` are validated for the dark surface.
