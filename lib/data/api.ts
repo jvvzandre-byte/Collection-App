@@ -1,4 +1,5 @@
 import type {
+  Audience,
   Address, AuditEvent, Collection, CollectionRequest, Draw, Frequency, ISODate, MonthKey, Notification,
   Role, Run, Settings, Subscription, User, Voucher, WaitlistEntry, Zone,
 } from "@/lib/types";
@@ -136,6 +137,40 @@ export interface DrawPreview {
   blockers: string[];
 }
 
+export interface CustomerDetail {
+  row: CustomerRow;
+  collections: (Collection & { zoneCode: string | null })[];
+  requests: CollectionRequest[];
+  upcoming: UpcomingDay[];
+  months: { month: MonthKey; kg: number; entries: number; collections: number }[];
+  messages: Notification[];
+  wins: Voucher[];
+}
+
+export interface StaffRow {
+  user: User;
+  runsThisMonth: number;
+  kgThisMonth: number;
+  upcoming: { id: string; date: ISODate; zoneCode: string }[];
+}
+
+export interface CustomerInput {
+  id?: string;
+  name: string;
+  phone: string;
+  street: string;
+  suburb: string;
+  note?: string;
+}
+
+export interface BroadcastInput {
+  audience: Audience;
+  zoneId?: string;
+  userId?: string;
+  channel: Notification["channel"];
+  body: string;
+}
+
 export interface SignUpInput {
   name: string;
   phone: string;
@@ -209,6 +244,30 @@ export interface DataApi {
   getAuditLog(): Promise<AuditEvent[]>;
   updateSettings(s: Partial<Settings>): Promise<void>;
   getUserNames(): Promise<Record<string, string>>;
+
+  // admin: customers
+  getCustomer(userId: string): Promise<CustomerDetail>;
+  saveCustomer(input: CustomerInput): Promise<User>;
+  adminSetPlan(userId: string, frequency: Frequency | null): Promise<void>;
+  setUserStatus(userId: string, status: "active" | "suspended"): Promise<void>;
+  /** POPIA erasure: wipe personal details, keep anonymised collection history for the ledger. */
+  eraseCustomer(userId: string): Promise<void>;
+  removeWaitlistEntry(id: string): Promise<void>;
+
+  // admin: team
+  getTeam(): Promise<StaffRow[]>;
+  saveStaff(input: { id?: string; role: "driver" | "admin"; name: string; phone: string }): Promise<User>;
+
+  // admin: run editing
+  addStopToRun(runId: string, userId: string): Promise<void>;
+  removeStop(stopId: string): Promise<void>;
+  moveStop(stopId: string, direction: -1 | 1): Promise<void>;
+  reopenRun(runId: string): Promise<void>;
+
+  // admin: queue + messages
+  approveAllFitting(): Promise<{ approved: number; skipped: number }>;
+  previewAudience(input: Omit<BroadcastInput, "body" | "channel">): Promise<number>;
+  sendBroadcast(input: BroadcastInput): Promise<number>;
 }
 
 export type { Role };

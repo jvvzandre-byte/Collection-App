@@ -1,4 +1,6 @@
-# Recycling Collection App
+# Kilo: Recycling Collection App
+
+*Every kilo counts.* (Working brand: name "Kilo", logo in `components/Logo.tsx`.)
 
 A mobile/web app and desktop admin panel for a household recycling collection business. Households sign up for kerbside collection, the business collects on fixed days per area, and every accepted kilogram earns one entry into a monthly draw for 5 vouchers.
 

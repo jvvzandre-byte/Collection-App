@@ -1,6 +1,7 @@
 "use client";
 
-import type { ButtonHTMLAttributes, ReactNode } from "react";
+import { useState, type ButtonHTMLAttributes, type ReactNode } from "react";
+import { createPortal } from "react-dom";
 import { initials } from "@/lib/format";
 
 // Dark-theme primitives for the admin panel.
@@ -29,7 +30,7 @@ const variants: Record<V, string> = {
 };
 
 export function ABtn({ variant = "ghost", size = "md", className = "", ...p }: ButtonHTMLAttributes<HTMLButtonElement> & { variant?: V; size?: "sm" | "md" }) {
-  return <button {...p} className={`inline-flex items-center justify-center gap-1.5 rounded-full font-medium transition disabled:opacity-40 ${size === "sm" ? "h-8 px-3 text-[13px]" : "h-10 px-4 text-sm"} ${variants[variant]} ${className}`} />;
+  return <button type="button" {...p} className={`inline-flex items-center justify-center gap-1.5 rounded-full font-medium transition disabled:opacity-40 ${size === "sm" ? "h-8 px-3 text-[13px]" : "h-10 px-4 text-sm"} ${variants[variant]} ${className}`} />;
 }
 
 export function Seg<T extends string>({ value, options, onChange }: { value: T; options: { value: T; label: string }[]; onChange: (v: T) => void }) {
@@ -51,8 +52,8 @@ const TONE = {
   cool: "bg-cool/20 text-[#aab3ff]",
   electric: "bg-electric text-white",
   muted: "bg-night-3 text-fog-2",
-  good: "bg-[#1f3b2c] text-[#7fdca6]",
-  warn: "bg-[#3d3220] text-[#f0c674]",
+  good: "bg-[#173a3a] text-[#7fdca6]",
+  warn: "bg-[#3a3326] text-[#f0c674]",
 } as const;
 
 export function Tag({ tone = "muted", children }: { tone?: keyof typeof TONE; children: ReactNode }) {
@@ -113,6 +114,47 @@ export function ATable({ head, children }: { head: ReactNode[]; children: ReactN
         <thead><tr>{head.map((h, i) => <th key={i} className="px-3 pb-1 text-xs font-medium uppercase tracking-wider text-fog-3">{h}</th>)}</tr></thead>
         <tbody className="[&_td]:bg-night-2 [&_td]:px-3 [&_td]:py-3 [&_td:first-child]:rounded-l-xl [&_td:last-child]:rounded-r-xl">{children}</tbody>
       </table>
+    </div>
+  );
+}
+
+/** Right-hand slide-over for forms. */
+export function Drawer({ open, onClose, title, children, footer }: { open: boolean; onClose: () => void; title: ReactNode; children: ReactNode; footer?: ReactNode }) {
+  if (!open || typeof document === "undefined") return null;
+  // Portal to <body>: page wrappers animate transform, which would otherwise trap `fixed` inside them.
+  return createPortal(
+    <div className="fixed inset-0 z-50 flex justify-end text-fog [color-scheme:dark]" role="dialog" aria-modal="true" onKeyDown={(e) => e.key === "Escape" && onClose()}>
+      <button aria-label="Close" className="absolute inset-0 bg-night/70 backdrop-blur-sm" onClick={onClose} />
+      <div className="rise relative flex h-full w-full max-w-[460px] flex-col border-l border-white/10 bg-night-1 text-fog shadow-2xl">
+        <div className="flex items-center justify-between border-b border-white/[.06] px-6 py-5">
+          <h2 className="text-xl font-light">{title}</h2>
+          <button onClick={onClose} aria-label="Close" className="grid size-9 place-items-center rounded-full border border-white/10 hover:bg-night-3">✕</button>
+        </div>
+        <div className="flex-1 space-y-4 overflow-y-auto px-6 py-5">{children}</div>
+        {footer && <div className="flex gap-2 border-t border-white/[.06] px-6 py-4">{footer}</div>}
+      </div>
+    </div>,
+    document.body,
+  );
+}
+
+/** Two-step button for destructive actions: first click arms it, second confirms. */
+export function ConfirmBtn({ label, confirm, onConfirm, variant = "line", size = "sm" }: { label: ReactNode; confirm: ReactNode; onConfirm: () => void; variant?: V; size?: "sm" | "md" }) {
+  const [armed, setArmed] = useState(false);
+  return armed ? (
+    <span className="inline-flex gap-1.5">
+      <ABtn size={size} variant="hot" onClick={() => { setArmed(false); onConfirm(); }}>{confirm}</ABtn>
+      <ABtn size={size} variant="ghost" onClick={() => setArmed(false)}>Cancel</ABtn>
+    </span>
+  ) : <ABtn size={size} variant={variant} onClick={() => setArmed(true)}>{label}</ABtn>;
+}
+
+export function StatCard({ label, value, sub }: { label: string; value: ReactNode; sub?: ReactNode }) {
+  return (
+    <div className="panel min-w-0 p-4">
+      <p className="text-xs uppercase tracking-wider text-fog-3">{label}</p>
+      <p className="mt-1 text-[28px] font-light leading-tight tabular">{value}</p>
+      {sub && <p className="text-xs text-fog-3">{sub}</p>}
     </div>
   );
 }

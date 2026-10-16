@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { ABtn, AError, AField, ATable, Avatar, Count, Empty, PageHead, Panel, Seg, Tag, aInput } from "@/components/admin/ui";
+import { ABtn, AError, AField, ATable, ConfirmBtn, Avatar, Count, Empty, PageHead, Panel, Seg, Tag, aInput } from "@/components/admin/ui";
 import { IconCheck, IconGift, IconPlus, IconX } from "@/components/Icons";
 import { api, type DrawPreview } from "@/lib/data";
 import { useData } from "@/lib/data/hooks";
@@ -133,6 +133,7 @@ function DrawResult({ p, names, redrawDays }: { p: DrawPreview; names: Record<st
                   <ABtn size="sm" variant="white" onClick={() => act(() => api.setVoucherStatus(v.id, "claimed"))}>Claimed</ABtn>
                   <ABtn size="sm" variant="line" disabled={age < redrawDays} title={age < redrawDays ? `Redraw allowed after ${redrawDays} days (${redrawDays - age} to go)` : undefined}
                     onClick={() => act(() => api.redrawVoucher(v.id))}>Redraw</ABtn>
+                  <ConfirmBtn label="Expire" confirm="Mark expired" onConfirm={() => act(() => api.setVoucherStatus(v.id, "expired"))} />
                 </div>
               )}
             </li>
@@ -148,7 +149,7 @@ const SWATCH: Record<Voucher["tone"], string> = { butter: "#f6e2ae", rose: "#f9d
 
 function Vouchers({ month, vouchers, locked }: { month: string; vouchers: Voucher[]; locked: boolean }) {
   const blank = { name: "", sponsor: "", valueRands: 500, tone: TONES[vouchers.length % 5], expiry: `${shiftMonth(month, 4)}-01` };
-  const [draft, setDraft] = useState<typeof blank | null>(null);
+  const [draft, setDraft] = useState<(typeof blank & { id?: string }) | null>(null);
   const [error, setError] = useState<string | null>(null);
   const save = async () => {
     if (!draft) return;
@@ -166,13 +167,16 @@ function Vouchers({ month, vouchers, locked }: { month: string; vouchers: Vouche
             </div>
             <span className="text-lg font-semibold tabular">{rands(v.valueRands)}</span>
             {!locked && v.status === "available" && (
+              <button aria-label="Edit voucher" onClick={() => setDraft({ id: v.id, name: v.name, sponsor: v.sponsor, valueRands: v.valueRands, tone: v.tone, expiry: v.expiry })} className="rounded-full px-2 py-1 text-xs font-medium hover:bg-black/10">Edit</button>
+            )}
+            {!locked && v.status === "available" && (
               <button aria-label="Remove voucher" onClick={() => api.deleteVoucher(v.id).catch((e) => setError(e.message))} className="grid size-8 place-items-center rounded-full hover:bg-black/10"><IconX size={15} /></button>
             )}
           </li>
         ))}
         {!vouchers.length && <Empty>No vouchers yet.</Empty>}
       </ul>
-      {!locked && vouchers.length < 5 && (draft ? (
+      {!locked && (vouchers.length < 5 || draft?.id) && (draft ? (
         <div className="mt-4 space-y-3 border-t border-white/5 pt-4">
           <AField label="Voucher"><input className={aInput} value={draft.name} onChange={(e) => setDraft({ ...draft, name: e.target.value })} placeholder="Grocery voucher" /></AField>
           <div className="grid grid-cols-2 gap-3">
@@ -188,7 +192,7 @@ function Vouchers({ month, vouchers, locked }: { month: string; vouchers: Vouche
             </AField>
           </div>
           <AError>{error}</AError>
-          <div className="flex gap-2"><ABtn variant="white" size="sm" onClick={save}>Add voucher</ABtn><ABtn variant="line" size="sm" onClick={() => setDraft(null)}>Cancel</ABtn></div>
+          <div className="flex gap-2"><ABtn variant="white" size="sm" onClick={save}>{draft.id ? "Save voucher" : "Add voucher"}</ABtn><ABtn variant="line" size="sm" onClick={() => setDraft(null)}>Cancel</ABtn></div>
         </div>
       ) : (
         <ABtn variant="line" className="mt-4 w-full" onClick={() => setDraft(blank)}><IconPlus size={16} /> Add voucher</ABtn>

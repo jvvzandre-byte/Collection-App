@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useState } from "react";
 import { ABtn, AError, Avatar, Empty, PageHead, Panel, Tag } from "@/components/admin/ui";
 import { IconCheck, IconX } from "@/components/Icons";
@@ -11,6 +12,11 @@ import { timeAgo } from "@/lib/format";
 export default function Requests() {
   const { data } = useData(() => api.getRequestQueue());
   const [error, setError] = useState<string | null>(null);
+  const [note, setNote] = useState<string | null>(null);
+  const approveAll = async () => {
+    const r = await api.approveAllFitting();
+    setNote(`Approved ${r.approved}.${r.skipped ? ` ${r.skipped} left: their run is full.` : ""}`);
+  };
 
   const decide = async (q: QueueItem, approve: boolean) => {
     setError(null);
@@ -19,7 +25,9 @@ export default function Requests() {
 
   return (
     <div className="rise">
-      <PageHead title="Request queue" sub="New standing pickups and one-off collection requests. Customers are notified of each decision." />
+      <PageHead title="Request queue" sub="New standing pickups and one-off collection requests. Customers are notified of each decision."
+        right={data && data.length > 0 && <ABtn variant="white" onClick={approveAll}><IconCheck size={15} /> Approve all that fit</ABtn>} />
+      {note && <p className="mb-4 rounded-xl bg-[#173a3a] px-3 py-2 text-sm text-[#7fdca6]">{note}</p>}
       {error && <div className="mb-4"><AError>{error}</AError></div>}
       <Panel>
         {!data ? <div className="h-48 animate-pulse rounded-2xl bg-night-2" /> : data.length === 0 ? <Empty>All caught up. Nothing waiting for review.</Empty> : (
@@ -35,7 +43,7 @@ export default function Requests() {
                   <div className="flex items-center gap-3">
                     <Avatar name={q.user.name} />
                     <div className="min-w-0">
-                      <p className="truncate text-fog">{q.user.name}</p>
+                      <Link href={`/admin/customers/view?id=${q.user.id}`} className="block truncate text-fog hover:underline">{q.user.name}</Link>
                       <p className="truncate text-[13px] text-fog-3">{q.address?.street}, {q.address?.suburb}</p>
                     </div>
                   </div>

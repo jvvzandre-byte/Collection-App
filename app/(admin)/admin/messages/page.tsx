@@ -1,7 +1,10 @@
 "use client";
 
 import { useState } from "react";
-import { PageHead, Panel, Seg, Tag } from "@/components/admin/ui";
+import { ComposeShell } from "@/components/admin/Compose";
+import { ABtn, AField, PageHead, Panel, Seg, Tag, aInput } from "@/components/admin/ui";
+import { IconPlus } from "@/components/Icons";
+import type { Audience } from "@/lib/types";
 import { api } from "@/lib/data";
 import { useData } from "@/lib/data/hooks";
 
@@ -9,6 +12,7 @@ type T = "messages" | "audit";
 
 export default function Messages() {
   const [tab, setTab] = useState<T>("messages");
+  const [composing, setComposing] = useState(false);
   const { data } = useData(async () => ({ notes: await api.getNotifications(), audit: await api.getAuditLog(), names: await api.getUserNames() }));
   const fmt = (iso: string) => new Date(iso).toLocaleString("en-ZA", { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" });
 
@@ -16,7 +20,8 @@ export default function Messages() {
     <div className="rise">
       <PageHead title={tab === "messages" ? "Sent messages" : "Audit log"}
         sub={tab === "messages" ? "Notifications are stubbed. Nothing leaves the app yet; this is what would have been sent." : "Every admin action, draw and redraw."}
-        right={<Seg value={tab} onChange={setTab} options={[{ value: "messages", label: "Messages" }, { value: "audit", label: "Audit log" }]} />} />
+        right={<div className="flex items-center gap-2"><Seg value={tab} onChange={setTab} options={[{ value: "messages", label: "Messages" }, { value: "audit", label: "Audit log" }]} /><ABtn variant="white" onClick={() => setComposing(true)}><IconPlus size={16} /> New message</ABtn></div>} />
+      {composing && <Broadcast onClose={() => setComposing(false)} />}
       <Panel>
         {!data ? <div className="h-64 animate-pulse rounded-2xl bg-night-2" /> : tab === "messages" ? (
           <ul className="space-y-2">
@@ -47,5 +52,42 @@ export default function Messages() {
         )}
       </Panel>
     </div>
+  );
+}
+
+function Broadcast({ onClose }: { onClose: () => void }) {
+  const [audience, setAudience] = useState<Exclude<Audience, "user">>("zone");
+  const [zoneId, setZoneId] = useState("");
+  const [body, setBody] = useState("");
+  const [channel, setChannel] = useState<"whatsapp" | "sms">("whatsapp");
+  const [error, setError] = useState<string | null>(null);
+  const { data: zones } = useData(() => api.getZones());
+  const zone = zoneId || zones?.[0]?.id || "";
+  const { data: count } = useData(() => api.previewAudience({ audience, zoneId: zone }), [audience, zone]);
+  const send = async () => {
+    try { await api.sendBroadcast({ audience, zoneId: zone, channel, body }); onClose(); } catch (e) { setError((e as Error).message); }
+  };
+  return (
+    <ComposeShell title="New message" onClose={onClose} onSend={send} body={body} setBody={setBody} channel={channel} setChannel={setChannel} error={error} recipients={count ?? undefined}
+      before={
+        <>
+          <AField label="To">
+            <select className={aInput} value={audience} onChange={(e) => setAudience(e.target.value as typeof audience)}>
+              <option value="zone">Everyone in a zone</option>
+              <option value="all">All served households</option>
+              <option value="active">Active this month</option>
+              <option value="waitlist">Waiting list</option>
+            </select>
+          </AField>
+          {audience === "zone" && (
+            <AField label="Zone">
+              <select className={aInput} value={zone} onChange={(e) => setZoneId(e.target.value)}>
+                {zones?.map((z) => <option key={z.id} value={z.id}>Zone {z.code} · {z.name}</option>)}
+              </select>
+            </AField>
+          )}
+          <p className="text-sm text-fog-2">{count ?? "…"} recipient{count === 1 ? "" : "s"}</p>
+        </>
+      } />
   );
 }

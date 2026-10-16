@@ -22,17 +22,18 @@
   --color-rose-deep: #c43d68;
   --color-sky: #d5e8fb;
 
-  /* Admin (dark) */
-  --color-night: #0a0a0c;
-  --color-night-1: #141418;
-  --color-night-2: #1c1c21;
-  --color-night-3: #26262c;
-  --color-fog: #f4f4f6;
-  --color-fog-2: #a4a4ae;
-  --color-fog-3: #6b6b76;
+  /* Admin (dark blue) */
+  --color-night: #0a1226;
+  --color-night-1: #101a33;
+  --color-night-2: #16223f;
+  --color-night-3: #1e2c4f;
+  --color-fog: #f2f5fc;
+  --color-fog-2: #a3afcc;
+  --color-fog-3: #6b7896;
   --color-hot: #e6457f;
   --color-cool: #6e7bf2;
-  --color-electric: #3a57f5;
+  --color-electric: #4467ff;
+  --color-brand: #8f98f7;
 
   --radius-xl2: 1.25rem;
   --radius-xl3: 1.75rem;

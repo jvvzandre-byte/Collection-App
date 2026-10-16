@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { useEffect, type ButtonHTMLAttributes, type ReactNode } from "react";
+import { createPortal } from "react-dom";
 import { IconArrowRight, IconX } from "./Icons";
 
 // Light-theme primitives for the customer and driver views.
@@ -78,9 +79,10 @@ export function Sheet({ open, onClose, title, children }: { open: boolean; onClo
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
   }, [open, onClose]);
-  if (!open) return null;
-  return (
-    <div className="fixed inset-0 z-50 flex items-end justify-center" role="dialog" aria-modal="true">
+  if (!open || typeof document === "undefined") return null;
+  // Portal to <body>: page wrappers animate transform, which would otherwise trap `fixed` inside them.
+  return createPortal(
+    <div className="fixed inset-0 z-50 flex items-end justify-center text-ink" role="dialog" aria-modal="true">
       <button aria-label="Close" className="absolute inset-0 bg-ink/40 backdrop-blur-[2px]" onClick={onClose} />
       <div className="sheet-in relative max-h-[92dvh] w-full max-w-[480px] overflow-y-auto rounded-t-[2rem] bg-paper px-5 pb-[max(1.25rem,env(safe-area-inset-bottom))] pt-3">
         <div className="mx-auto mb-3 h-1.5 w-10 rounded-full bg-ink/15" />
@@ -90,7 +92,8 @@ export function Sheet({ open, onClose, title, children }: { open: boolean; onClo
         </div>
         {children}
       </div>
-    </div>
+    </div>,
+    document.body,
   );
 }
 

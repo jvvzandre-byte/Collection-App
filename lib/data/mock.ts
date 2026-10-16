@@ -7,7 +7,7 @@ import { buildSnapshot, entriesFromKg, monthlyKgByUser, roundKg } from "@/lib/lo
 import { generateSeed, selectWinners } from "@/lib/logic/draw";
 import { isDue, matchZone, normaliseSuburb, planCovers, upcomingCollectionDays } from "@/lib/logic/schedule";
 import {
-  AccessError, type CustomerRow, type DataApi, type DrawPreview, type ExceptionItem, type QueueItem, type RunView,
+  AccessError, type CustomerDetail, type CustomerRow, type StaffRow, type DataApi, type DrawPreview, type ExceptionItem, type QueueItem, type RunView,
   type StopView, type UpcomingDay,
 } from "./api";
 import { DB_VERSION, type DB } from "./db";
@@ -84,11 +84,12 @@ function requireRole(...roles: Role[]): User {
   return u;
 }
 
+/** "082 123 4567" / "+27821234567" → "+27 82 123 4567" (SA numbers); other countries keep their digits. */
 function normalisePhone(p: string): string {
-  const digits = p.replace(/[^\d+]/g, "");
-  if (digits.startsWith("+")) return digits;
-  if (digits.startsWith("0")) return `+27${digits.slice(1)}`;
-  return `+${digits}`;
+  const raw = p.replace(/[^\d+]/g, "");
+  const full = raw.startsWith("+") ? raw : raw.startsWith("0") ? `+27${raw.slice(1)}` : `+${raw}`;
+  const sa = full.match(/^\+27(\d{2})(\d{3})(\d{4})$/);
+  return sa ? `+27 ${sa[1]} ${sa[2]} ${sa[3]}` : full;
 }
 
 const samePhone = (a: string, b: string) => normalisePhone(a) === normalisePhone(b);
@@ -122,12 +123,18 @@ function ensureRuns(from: ISODate, to: ISODate) {
   }
 }
 
+/** Suspended and erased customers get no collections. */
+const isCollectable = (userId: string) => {
+  const s = userById(userId)?.status;
+  return s !== "suspended" && s !== "erased";
+};
+
 /** Bring a not-yet-finished run's stop list in line with plans, skips and approved requests. */
 function syncStops(run: Run) {
   if (run.status === "completed") return;
   const d = load();
   const due = d.addresses
-    .filter((a) => a.zoneId === run.zoneId && isDue(a.userId, run.date, d.subscriptions, d.requests))
+    .filter((a) => a.zoneId === run.zoneId && isCollectable(a.userId) && isDue(a.userId, run.date, d.subscriptions, d.requests))
     .sort((a, b) => a.street.localeCompare(b.street));
   const dueIds = new Set(due.map((a) => a.userId));
   d.collections = d.collections.filter((c) => c.runId !== run.id || c.status !== "pending" || dueIds.has(c.userId));
@@ -200,6 +207,23 @@ function upcomingFor(userId: string, zone: Zone, count = 6): UpcomingDay[] {
   });
 }
 
+/** Who a broadcast reaches. Waitlist entries without an account are addressed by phone. */
+function audienceOf({ audience, zoneId, userId }: { audience: string; zoneId?: string; userId?: string }): { id?: string; phone: string }[] {
+  const d = load();
+  const customers = d.users.filter((u) => u.role === "customer" && u.status !== "erased" && u.phone);
+  switch (audience) {
+    case "all": return customers.filter((u) => addressOf(u.id)?.zoneId);
+    case "active": {
+      const ids = activeCustomerIds(d.collections, monthOf(today()));
+      return customers.filter((u) => ids.has(u.id));
+    }
+    case "zone": return customers.filter((u) => addressOf(u.id)?.zoneId === zoneId);
+    case "waitlist": return d.waitlist.map((w) => ({ id: w.userId, phone: w.phone }));
+    case "user": return customers.filter((u) => u.id === userId);
+    default: return [];
+  }
+}
+
 // ---------- implementation ----------
 
 export const mockApi: DataApi = {
@@ -226,8 +250,9 @@ export const mockApi: DataApi = {
   async signIn(phone, code) {
     const d = load();
     if (d.otps[normalisePhone(phone)] !== code.trim()) throw new Error("That code doesn't match. Try again or resend.");
-    const u = d.users.find((x) => samePhone(x.phone, phone));
+    const u = d.users.find((x) => x.status !== "erased" && samePhone(x.phone, phone));
     if (!u) throw new Error("No account for this number yet. Sign up instead.");
+    if (u.role !== "customer" && u.status === "suspended") throw new Error("This account is suspended. Contact an admin.");
     delete d.otps[normalisePhone(phone)];
     sessionUserId = u.id;
     save();
@@ -239,7 +264,7 @@ export const mockApi: DataApi = {
     if (!input.consent) throw new Error("We need your consent to store your details.");
     if (!input.name.trim()) throw new Error("Please enter your name.");
     if (d.otps[normalisePhone(input.phone)] !== input.code.trim()) throw new Error("That code doesn't match.");
-    if (d.users.some((u) => samePhone(u.phone, input.phone))) throw new Error("This number already has an account. Sign in instead.");
+    if (d.users.some((u) => u.status !== "erased" && samePhone(u.phone, input.phone))) throw new Error("This number already has an account. Sign in instead.");
     const street = input.street.trim().toLowerCase().replace(/\s+/g, " ");
     const suburb = normaliseSuburb(input.suburb);
     if (d.addresses.some((a) => a.street.toLowerCase().replace(/\s+/g, " ") === street && normaliseSuburb(a.suburb) === suburb))
@@ -591,7 +616,7 @@ export const mockApi: DataApi = {
 
   async getDrivers() {
     requireRole("admin");
-    return clone(load().users.filter((u) => u.role === "driver"));
+    return clone(load().users.filter((u) => u.role === "driver" && u.status !== "suspended"));
   },
 
   async getRuns(from, to) {
@@ -610,6 +635,7 @@ export const mockApi: DataApi = {
     const run = d.runs.find((r) => r.id === runId);
     if (!run) throw new Error("Run not found.");
     if (driverId && userById(driverId)?.role !== "driver") throw new Error("Not a driver.");
+    if (driverId && userById(driverId)?.status === "suspended") throw new Error("That driver is suspended.");
     run.driverId = driverId;
     for (const c of d.collections.filter((x) => x.runId === runId && x.status === "pending")) c.driverId = driverId;
     audit(me, "run.assign", `${run.id} → ${userById(driverId)?.name ?? "unassigned"}`);
@@ -870,6 +896,286 @@ export const mockApi: DataApi = {
     Object.assign(load().settings, s);
     audit(me, "settings.update", JSON.stringify(s));
     save();
+  },
+
+  // ----- admin: customers -----
+  async getCustomer(userId) {
+    requireRole("admin");
+    const d = load();
+    const row = (await mockApi.getCustomers()).find((r) => r.user.id === userId);
+    if (!row) throw new Error("Customer not found.");
+    const cap = d.settings.kgCapPerCollection;
+    const t = today();
+    const months = Array.from({ length: 6 }, (_, i) => shiftMonth(monthOf(t), -i)).map((month) => {
+      const kgM = monthlyKgByUser(d.collections, month, cap).get(userId) ?? 0;
+      return { month, kg: kgM, entries: entriesFromKg(kgM), collections: d.collections.filter((c) => c.userId === userId && c.status === "collected" && monthOf(c.date) === month).length };
+    });
+    const detail: CustomerDetail = {
+      row,
+      collections: d.collections.filter((c) => c.userId === userId && c.status !== "pending").sort((a, b) => b.date.localeCompare(a.date))
+        .map((c) => ({ ...clone(c), zoneCode: zoneById(d.runs.find((r) => r.id === c.runId)?.zoneId)?.code ?? null })),
+      requests: clone(d.requests.filter((r) => r.userId === userId).sort((a, b) => b.date.localeCompare(a.date))),
+      upcoming: row.zone ? upcomingFor(userId, row.zone) : [],
+      months,
+      messages: clone(d.notifications.filter((n) => n.userId === userId)),
+      wins: clone(d.vouchers.filter((v) => v.winnerId === userId)),
+    };
+    save(false);
+    return detail;
+  },
+
+  async saveCustomer(input) {
+    const me = requireRole("admin");
+    const d = load();
+    const name = input.name.trim();
+    const street = input.street.trim();
+    const suburb = input.suburb.trim();
+    if (!name || !street || !suburb) throw new Error("Name, street and suburb are required.");
+    if (input.phone.replace(/\D/g, "").length < 9) throw new Error("Enter a valid cellphone number.");
+    const others = d.users.filter((u) => u.id !== input.id && u.status !== "erased");
+    if (others.some((u) => samePhone(u.phone, input.phone))) throw new Error("Another account already uses this number.");
+    const key = (s: string) => s.toLowerCase().replace(/\s+/g, " ").trim();
+    const othersAddr = d.addresses.filter((a) => a.userId !== input.id && others.some((u) => u.id === a.userId));
+    if (othersAddr.some((a) => key(a.street) === key(street) && normaliseSuburb(a.suburb) === normaliseSuburb(suburb)))
+      throw new Error("Another household already has this address.");
+    const zone = matchZone(suburb, d.zones);
+
+    let user: User;
+    if (input.id) {
+      user = d.users.find((u) => u.id === input.id && u.role === "customer")!;
+      if (!user) throw new Error("Customer not found.");
+      if (user.status === "erased") throw new Error("This customer has been erased.");
+      const addr = d.addresses.find((a) => a.userId === user.id);
+      const moved = !addr || key(addr.street) !== key(street) || normaliseSuburb(addr.suburb) !== normaliseSuburb(suburb);
+      Object.assign(user, { name, phone: normalisePhone(input.phone), note: input.note?.trim() || undefined });
+      if (addr) Object.assign(addr, { street, suburb, zoneId: zone?.id ?? null });
+      if (moved) {
+        const oldZone = addr ? zoneById(addr.zoneId) : null;
+        // A new zone means a new collection day: restart the plan from the next one.
+        const sub = d.subscriptions.find((s) => s.userId === user.id);
+        if (sub && zone && zone.id !== oldZone?.id) Object.assign(sub, { startDate: nextWeekday(addDays(today(), 1), zone.collectionDay), skipped: [] });
+        if (sub && !zone) d.subscriptions = d.subscriptions.filter((s) => s !== sub);
+        d.waitlist = d.waitlist.filter((w) => w.userId !== user.id);
+        if (!zone) d.waitlist.push({ id: uid("w"), userId: user.id, name, phone: user.phone, suburb, createdAt: now() });
+      }
+      audit(me, "customer.update", `${name}${moved ? ` · moved to ${street}, ${suburb}` : ""}`);
+    } else {
+      user = { id: uid("u"), role: "customer", name, phone: normalisePhone(input.phone), phoneVerified: false, createdAt: now(), status: "active", note: input.note?.trim() || undefined };
+      d.users.push(user);
+      d.addresses.push({ id: uid("a"), userId: user.id, street, suburb, zoneId: zone?.id ?? null });
+      if (!zone) d.waitlist.push({ id: uid("w"), userId: user.id, name, phone: user.phone, suburb, createdAt: now() });
+      notify(user, `Hi ${name.split(" ")[0]}, we've set up your Kilo recycling account. Open the app to confirm your number and accept the privacy notice.`, "sms");
+      audit(me, "customer.create", `${name} · ${suburb}${zone ? ` → Zone ${zone.code}` : " → waiting list"}`);
+    }
+    save();
+    return clone(user);
+  },
+
+  async adminSetPlan(userId, frequency) {
+    const me = requireRole("admin");
+    const d = load();
+    const u = userById(userId);
+    const zone = zoneById(addressOf(userId)?.zoneId);
+    if (!u || u.role !== "customer") throw new Error("Customer not found.");
+    if (!frequency) {
+      d.subscriptions = d.subscriptions.filter((s) => s.userId !== userId);
+      notify(u, "Your standing pickup has been stopped. You can still book one-off collections in the app.");
+    } else {
+      if (!zone) throw new Error("This customer's suburb isn't in a zone yet.");
+      const startDate = nextWeekday(addDays(today(), 1), zone.collectionDay);
+      const sub = d.subscriptions.find((s) => s.userId === userId);
+      if (sub) Object.assign(sub, { frequency, status: "active", ...(sub.status !== "active" ? { startDate } : {}) });
+      else d.subscriptions.push({ id: uid("s"), userId, frequency, startDate, status: "active", skipped: [], createdAt: now() });
+      notify(u, `Your ${frequency} pickup is set up. Next collection: ${formatDay(d.subscriptions.find((s) => s.userId === userId)!.startDate, { weekday: "long", day: "numeric", month: "long" })}.`);
+    }
+    audit(me, "plan.admin_set", `${u.name} → ${frequency ?? "none"}`);
+    save();
+  },
+
+  async setUserStatus(userId, status) {
+    const me = requireRole("admin");
+    const d = load();
+    const u = userById(userId);
+    if (!u || u.status === "erased") throw new Error("User not found.");
+    if (u.id === me.id) throw new Error("You can't suspend yourself.");
+    if (u.role === "admin" && status === "suspended" && d.users.filter((x) => x.role === "admin" && x.status !== "suspended").length <= 1)
+      throw new Error("There must be at least one active admin.");
+    u.status = status;
+    if (u.role === "driver" && status === "suspended") {
+      // Pull them off upcoming runs so the gaps show up as exceptions.
+      for (const r of d.runs.filter((x) => x.driverId === u.id && x.date >= today() && x.status === "planned")) r.driverId = null;
+    }
+    audit(me, `user.${status === "active" ? "reactivate" : "suspend"}`, `${u.name} (${u.role})`);
+    save();
+  },
+
+  async eraseCustomer(userId) {
+    const me = requireRole("admin");
+    const d = load();
+    const u = userById(userId);
+    if (!u || u.role !== "customer") throw new Error("Customer not found.");
+    if (d.vouchers.some((v) => v.winnerId === userId && v.status === "notified")) throw new Error("This customer has an unclaimed prize. Resolve it first.");
+    const old = u.name;
+    Object.assign(u, { name: "Erased customer", phone: "", note: undefined, status: "erased" });
+    const a = addressOf(userId);
+    if (a) Object.assign(a, { street: "(erased)", zoneId: null });
+    d.subscriptions = d.subscriptions.filter((s) => s.userId !== userId);
+    d.requests = d.requests.filter((r) => r.userId !== userId || r.date < today());
+    d.waitlist = d.waitlist.filter((w) => w.userId !== userId);
+    d.collections = d.collections.filter((c) => c.userId !== userId || c.status !== "pending");
+    for (const n of d.notifications.filter((x) => x.userId === userId)) Object.assign(n, { phone: "", body: "(erased)" });
+    audit(me, "customer.erase", `POPIA erasure for ${old}`);
+    save();
+  },
+
+  async removeWaitlistEntry(id) {
+    const me = requireRole("admin");
+    const d = load();
+    const w = d.waitlist.find((x) => x.id === id);
+    if (!w) return;
+    d.waitlist = d.waitlist.filter((x) => x.id !== id);
+    audit(me, "waitlist.remove", `${w.name} · ${w.suburb}`);
+    save();
+  },
+
+  // ----- admin: team -----
+  async getTeam() {
+    requireRole("admin");
+    const d = load();
+    const t = today();
+    const month = monthOf(t);
+    ensureRuns(t, addDays(t, 14));
+    return d.users.filter((u) => u.role !== "customer").map((user): StaffRow => {
+      const mine = d.runs.filter((r) => r.driverId === user.id);
+      return {
+        user: clone(user),
+        runsThisMonth: mine.filter((r) => monthOf(r.date) === month && r.date <= t).length,
+        kgThisMonth: roundKg(d.collections.filter((c) => c.driverId === user.id && c.status === "collected" && monthOf(c.date) === month).reduce((s, c) => s + (c.kg ?? 0), 0)),
+        upcoming: mine.filter((r) => r.date >= t && r.date <= addDays(t, 14)).sort((a, b) => a.date.localeCompare(b.date))
+          .map((r) => ({ id: r.id, date: r.date, zoneCode: zoneById(r.zoneId)?.code ?? "?" })),
+      };
+    }).sort((a, b) => a.user.role.localeCompare(b.user.role) || a.user.name.localeCompare(b.user.name));
+  },
+
+  async saveStaff(input) {
+    const me = requireRole("admin");
+    const d = load();
+    if (!input.name.trim()) throw new Error("Enter a name.");
+    if (input.phone.replace(/\D/g, "").length < 9) throw new Error("Enter a valid cellphone number.");
+    if (d.users.some((u) => u.id !== input.id && u.status !== "erased" && samePhone(u.phone, input.phone))) throw new Error("Another account already uses this number.");
+    let user = d.users.find((u) => u.id === input.id);
+    if (user) {
+      if (user.role === "customer") throw new Error("Not a staff account.");
+      Object.assign(user, { name: input.name.trim(), phone: normalisePhone(input.phone) });
+      audit(me, "staff.update", `${user.name} (${user.role})`);
+    } else {
+      user = { id: uid("u"), role: input.role, name: input.name.trim(), phone: normalisePhone(input.phone), phoneVerified: false, createdAt: now(), status: "active" };
+      d.users.push(user);
+      notify(user, `You've been added to Kilo as ${input.role === "admin" ? "an admin" : "a driver"}. Sign in with this number.`, "sms");
+      audit(me, "staff.create", `${user.name} (${user.role})`);
+    }
+    save();
+    return clone(user);
+  },
+
+  // ----- admin: run editing -----
+  async addStopToRun(runId, userId) {
+    const me = requireRole("admin");
+    const d = load();
+    const run = d.runs.find((r) => r.id === runId);
+    if (!run) throw new Error("Run not found.");
+    if (run.status === "completed") throw new Error("Reopen the run first.");
+    const u = userById(userId);
+    if (!u || addressOf(userId)?.zoneId !== run.zoneId) throw new Error("That household isn't in this run's zone.");
+    if (!isCollectable(userId)) throw new Error("That customer is suspended.");
+    syncStops(run);
+    if (d.collections.some((c) => c.runId === run.id && c.userId === userId)) throw new Error("Already on this run.");
+    const sub = d.subscriptions.find((s) => s.userId === userId);
+    if (sub && planCovers(sub, run.date) && sub.skipped.includes(run.date)) sub.skipped = sub.skipped.filter((x) => x !== run.date);
+    else {
+      const pending = d.requests.find((r) => r.userId === userId && r.date === run.date && r.status === "pending");
+      if (pending) pending.status = "approved";
+      else d.requests.push({ id: uid("req"), userId, date: run.date, status: "approved", note: "Added by admin", createdAt: now() });
+    }
+    syncStops(run);
+    notify(u, `You've been added to the collection on ${formatDay(run.date, { weekday: "long", day: "numeric", month: "long" })}. Bags out by 7am.`);
+    audit(me, "run.add_stop", `${u.name} → ${run.id}`);
+    save();
+  },
+
+  async removeStop(stopId) {
+    const me = requireRole("admin");
+    const d = load();
+    const c = d.collections.find((x) => x.id === stopId);
+    if (!c) throw new Error("Stop not found.");
+    if (c.status !== "pending") throw new Error("Only open stops can be removed. Undo the outcome first.");
+    // Remove the reason it's on the run, otherwise the next sync puts it back.
+    const sub = d.subscriptions.find((s) => s.userId === c.userId);
+    if (sub && planCovers(sub, c.date)) sub.skipped = [...new Set([...sub.skipped, c.date])];
+    for (const r of d.requests.filter((x) => x.userId === c.userId && x.date === c.date && x.status === "approved")) r.status = "cancelled";
+    d.collections = d.collections.filter((x) => x.id !== stopId);
+    const u = userById(c.userId);
+    notify(u, `Your collection on ${formatDay(c.date, { weekday: "long", day: "numeric", month: "long" })} has been cancelled. Sorry for the change.`);
+    audit(me, "run.remove_stop", `${u?.name} · ${c.runId}`);
+    save();
+  },
+
+  async moveStop(stopId, direction) {
+    requireRole("admin");
+    const d = load();
+    const c = d.collections.find((x) => x.id === stopId);
+    if (!c) throw new Error("Stop not found.");
+    const stops = d.collections.filter((x) => x.runId === c.runId).sort((a, b) => a.order - b.order);
+    const i = stops.indexOf(c);
+    const j = i + direction;
+    if (j < 0 || j >= stops.length) return;
+    stops.forEach((s, k) => (s.order = k));
+    [stops[i].order, stops[j].order] = [j, i];
+    save();
+  },
+
+  async reopenRun(runId) {
+    const me = requireRole("admin");
+    const run = load().runs.find((r) => r.id === runId);
+    if (!run) throw new Error("Run not found.");
+    if (run.status !== "completed") return;
+    run.status = "in_progress";
+    audit(me, "run.reopen", run.id);
+    save();
+  },
+
+  // ----- admin: queue + messages -----
+  async approveAllFitting() {
+    requireRole("admin");
+    let approved = 0;
+    let skipped = 0;
+    for (const q of await mockApi.getRequestQueue()) {
+      try {
+        await mockApi.decideQueueItem(q.kind, q.id, true);
+        approved++;
+      } catch {
+        skipped++;
+      }
+    }
+    return { approved, skipped };
+  },
+
+  async previewAudience(input) {
+    requireRole("admin");
+    return audienceOf(input).length;
+  },
+
+  async sendBroadcast(input) {
+    const me = requireRole("admin");
+    const body = input.body.trim();
+    if (!body) throw new Error("Write a message first.");
+    if (body.length > 640) throw new Error("Keep it under 640 characters.");
+    const people = audienceOf(input);
+    if (!people.length) throw new Error("Nobody matches that audience.");
+    for (const p of people) notify(p, body, input.channel);
+    audit(me, "message.broadcast", `${input.audience}${input.zoneId ? ` ${zoneById(input.zoneId)?.code}` : ""} · ${people.length} recipients · ${body.slice(0, 60)}`);
+    save();
+    return people.length;
   },
 
   async getUserNames() {

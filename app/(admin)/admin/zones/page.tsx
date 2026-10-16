@@ -1,18 +1,20 @@
 "use client";
 
+import Link from "next/link";
 import { useState } from "react";
-import { ABtn, AError, AField, Count, Empty, PageHead, Panel, Tag, aInput } from "@/components/admin/ui";
+import { ABtn, AError, AField, ConfirmBtn, Count, Empty, PageHead, Panel, Tag, aInput } from "@/components/admin/ui";
 import { IconPlus } from "@/components/Icons";
 import { api } from "@/lib/data";
 import { useData } from "@/lib/data/hooks";
 import { WEEKDAYS } from "@/lib/logic/dates";
-import type { Settings, Weekday, Zone } from "@/lib/types";
+import { timeAgo } from "@/lib/format";
+import type { WaitlistEntry, Weekday, Zone } from "@/lib/types";
 
 type Draft = Omit<Zone, "id" | "suburbs"> & { id?: string; suburbs: string };
 const blank: Draft = { code: "", name: "", suburbs: "", collectionDay: 2, capacity: 40, active: true };
 
 export default function Zones() {
-  const { data } = useData(async () => ({ zones: await api.getZones(), waitlist: await api.getWaitlist(), settings: await api.getSettings() }));
+  const { data } = useData(async () => ({ zones: await api.getZones(), waitlist: await api.getWaitlist() }));
   const [draft, setDraft] = useState<Draft | null>(null);
   const [error, setError] = useState<string | null>(null);
 
@@ -80,33 +82,33 @@ export default function Zones() {
                 ))}
               </ul>
             )}
-            <p className="mt-3 text-xs text-fog-3">Add a suburb to a zone to open it. Everyone waiting there is notified.</p>
+            <p className="mt-3 text-xs text-fog-3">Add a suburb to a zone to open it. Everyone waiting there is notified. Message the whole list from <Link href="/admin/messages" className="underline">Messages</Link>.</p>
           </Panel>
-          {data && <RulesPanel s={data.settings} />}
+          {data && <WaitlistPeople people={data.waitlist} />}
         </div>
       </div>
     </div>
   );
 }
 
-function RulesPanel({ s }: { s: Settings }) {
-  const [cap, setCap] = useState(s.kgCapPerCollection?.toString() ?? "");
-  const [redraw, setRedraw] = useState(String(s.redrawAfterDays));
-  const [day, setDay] = useState(String(s.drawDay));
-  const [msg, setMsg] = useState<string | null>(null);
-  const save = async () => {
-    await api.updateSettings({ kgCapPerCollection: cap ? Number(cap) : null, redrawAfterDays: Number(redraw) || 14, drawDay: Math.min(28, Math.max(1, Number(day) || 1)) });
-    setMsg("Saved. The published rules update automatically.");
-  };
+function WaitlistPeople({ people }: { people: WaitlistEntry[] }) {
+  const [error, setError] = useState<string | null>(null);
   return (
-    <Panel title="Draw rules" action={<Tag tone="warn">TBC values</Tag>}>
-      <div className="grid grid-cols-3 gap-3">
-        <AField label="Kg cap"><input className={aInput} type="number" value={cap} onChange={(e) => setCap(e.target.value)} placeholder="none" /></AField>
-        <AField label="Redraw after"><input className={aInput} type="number" value={redraw} onChange={(e) => setRedraw(e.target.value)} /></AField>
-        <AField label="Draw day"><input className={aInput} type="number" value={day} onChange={(e) => setDay(e.target.value)} /></AField>
-      </div>
-      <p className="mt-3 text-xs leading-relaxed text-fog-3">Active customer = at least one accepted collection in the calendar month. Kg cap applies per collection; leave empty for no cap.</p>
-      <div className="mt-4 flex items-center gap-3"><ABtn variant="white" size="sm" onClick={save}>Save rules</ABtn>{msg && <span className="text-xs text-[#7fdca6]">{msg}</span>}</div>
+    <Panel title="People waiting">
+      {!people.length ? <Empty>No one waiting.</Empty> : (
+        <ul className="max-h-[420px] space-y-1.5 overflow-y-auto pr-1">
+          {people.map((w) => (
+            <li key={w.id} className="inset-row flex items-center gap-3 px-3 py-2">
+              <div className="min-w-0 flex-1">
+                <p className="truncate text-sm">{w.userId ? <Link href={`/admin/customers/view?id=${w.userId}`} className="hover:underline">{w.name}</Link> : w.name}</p>
+                <p className="truncate text-xs text-fog-3">{w.suburb} · {w.phone} · {timeAgo(w.createdAt)}</p>
+              </div>
+              <ConfirmBtn label="Remove" confirm="Remove" onConfirm={() => api.removeWaitlistEntry(w.id).catch((e) => setError(e.message))} />
+            </li>
+          ))}
+        </ul>
+      )}
+      <AError>{error}</AError>
     </Panel>
   );
 }
