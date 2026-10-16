@@ -13,7 +13,6 @@ import { upcomingCollectionDays } from "@/lib/logic/schedule";
 import type { Zone } from "@/lib/types";
 
 type Step = "details" | "code" | "address" | "plan" | "waitlist";
-type PlanChoice = "weekly" | "fortnightly" | "once";
 
 export default function SignUp() {
   const router = useRouter();
@@ -21,7 +20,6 @@ export default function SignUp() {
   const [form, setForm] = useState({ name: "", phone: "", consent: false, code: "", street: "", suburb: "" });
   const [devCode, setDevCode] = useState<string | null>(null);
   const [zone, setZone] = useState<Zone | null>(null);
-  const [plan, setPlan] = useState<PlanChoice>("weekly");
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const { data: suburbs } = useData(() => api.getServedSuburbs());
@@ -52,8 +50,7 @@ export default function SignUp() {
 
   const choosePlan = () => attempt(async () => {
     if (!zone) return;
-    if (plan === "once") await api.createCollectionRequest({ date: upcomingCollectionDays(zone, api.today(), 1)[0] });
-    else await api.setPlan(plan);
+    await api.setPlan("weekly");
     router.replace("/home");
   });
 
@@ -155,26 +152,23 @@ export default function SignUp() {
                 ))}
               </div>
             </div>
-            <h2 className="mt-8 text-[19px] font-semibold">How often should we come?</h2>
-            <div className="mt-3 grid gap-2.5" role="radiogroup">
-              {([
-                ["weekly", "Every week", "Best for busy households"],
-                ["fortnightly", "Every second week", "A lighter rhythm"],
-                ["once", "Just the next one", "Try it once, decide later"],
-              ] as const).map(([value, title, sub]) => (
-                <button type="button" role="radio" aria-checked={plan === value} key={value} onClick={() => setPlan(value)}
-                  className={`flex items-center justify-between rounded-2xl border p-4 text-left transition ${plan === value ? "border-lilac-deep bg-lilac-soft" : "border-line bg-card"}`}>
+            <h2 className="mt-8 text-[19px] font-semibold">Your weekly pickup</h2>
+            <ol className="mt-3 space-y-2.5">
+              {[
+                [`Every ${WEEKDAYS[zone.collectionDay]}`, "Put your bags at the kerb by 7am. We come every week."],
+                ["Away? Skip a week", "Skip any collection in the app, up to the day before."],
+                ["1 kg = 1 entry", "Everything we accept is weighed and counts toward the monthly draw."],
+              ].map(([title, sub], n) => (
+                <li key={title} className="flex gap-3 rounded-2xl bg-card p-4">
+                  <span className="grid size-7 shrink-0 place-items-center rounded-full bg-lilac-soft text-sm font-semibold text-lilac-deep">{n + 1}</span>
                   <span><span className="block font-medium">{title}</span><span className="text-sm text-ink-2">{sub}</span></span>
-                  <span className={`grid size-6 place-items-center rounded-full border-2 ${plan === value ? "border-lilac-deep" : "border-ink/20"}`}>
-                    {plan === value && <span className="size-3 rounded-full bg-lilac-deep" />}
-                  </span>
-                </button>
+                </li>
               ))}
-            </div>
-            <p className="mt-3 text-xs text-ink-3">New plans are confirmed by our team, usually within a day. You can skip any week.</p>
+            </ol>
+            <p className="mt-3 text-xs text-ink-3">Our team confirms new households, usually within a day.</p>
             <div className="mt-auto space-y-3 pt-8">
               <ErrorNote>{error}</ErrorNote>
-              <PillCta type="submit" disabled={busy}>Start collecting</PillCta>
+              <PillCta type="submit" disabled={busy}>Start weekly collection</PillCta>
             </div>
           </>
         )}

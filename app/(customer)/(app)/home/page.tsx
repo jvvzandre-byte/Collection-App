@@ -46,16 +46,16 @@ export default function Home() {
         </Card>
       ) : (
         <Card className="relative mt-6 overflow-hidden bg-lilac p-6">
-          <p className="max-w-[64%] text-sm font-medium text-ink/65">{next?.skipped ? "Skipped" : next?.scheduled ? `Next collection · ${when}` : pendingPlan ? "Plan awaiting approval" : next?.request ? "Requested" : "No collection booked"}</p>
+          <p className="max-w-[64%] text-sm font-medium text-ink/65">{next?.skipped ? "Skipped" : next?.scheduled ? `Next collection · ${when}` : pendingPlan ? "Weekly pickup awaiting approval" : "Weekly pickup is off"}</p>
           <p className="mt-1 max-w-[62%] font-display text-[34px] leading-[1.02]">
-            {next ? formatDay(next.date, { weekday: "long", day: "numeric", month: "long" }) : "Book a pickup"}
+            {next ? formatDay(next.date, { weekday: "long", day: "numeric", month: "long" }) : "Start your weekly pickup"}
           </p>
           <div className="relative z-10 mt-5 flex flex-wrap gap-2">
             {next?.scheduled && home.subscription?.status === "active" && !next.request && (
               <Button size="sm" onClick={() => toggleSkip(next.date, true)}>Skip this one</Button>
             )}
             {next?.skipped && <Button size="sm" onClick={() => toggleSkip(next.date, false)}><IconUndo size={16} /> Undo skip</Button>}
-            {!next?.scheduled && !next?.skipped && <Link href="/collections" className="inline-flex h-9 items-center rounded-full bg-ink px-4 text-sm font-medium text-white">Choose a date</Link>}
+            {!next?.scheduled && !next?.skipped && !pendingPlan && <Link href="/collections" className="inline-flex h-9 items-center rounded-full bg-ink px-4 text-sm font-medium text-white">Start weekly pickup</Link>}
           </div>
           {next?.scheduled && <p className="relative z-10 mt-3 text-sm text-ink/60">Bags out by 7am</p>}
           <Mascot size={130} mood={next?.skipped ? "sleepy" : "happy"} className="absolute -bottom-6 -right-6" />

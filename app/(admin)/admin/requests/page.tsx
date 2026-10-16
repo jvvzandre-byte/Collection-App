@@ -25,7 +25,7 @@ export default function Requests() {
 
   return (
     <div className="rise">
-      <PageHead title="Request queue" sub="New standing pickups and one-off collection requests. Customers are notified of each decision."
+      <PageHead title="Request queue" sub="New households waiting for their weekly pickup to be confirmed. Customers are notified of each decision."
         right={data && data.length > 0 && <ABtn variant="white" onClick={approveAll}><IconCheck size={15} /> Approve all that fit</ABtn>} />
       {note && <p className="mb-4 rounded-xl bg-[#173a3a] px-3 py-2 text-sm text-[#7fdca6]">{note}</p>}
       {error && <div className="mb-4"><AError>{error}</AError></div>}
@@ -37,7 +37,7 @@ export default function Requests() {
               return (
                 <li key={q.kind + q.id} className="inset-row flex flex-col gap-4 p-4">
                   <div className="flex items-start justify-between gap-3">
-                    {q.kind === "plan" ? <Tag tone="cool">New {q.frequency} plan</Tag> : <Tag tone="white">One-off</Tag>}
+                    {q.kind === "plan" ? <Tag tone="cool">New weekly pickup</Tag> : <Tag tone="white">Extra collection</Tag>}
                     <span className="text-xs text-fog-3">{timeAgo(q.createdAt)}</span>
                   </div>
                   <div className="flex items-center gap-3">

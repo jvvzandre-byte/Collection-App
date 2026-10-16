@@ -11,7 +11,6 @@ import { api } from "@/lib/data";
 import { useData } from "@/lib/data/hooks";
 import { WEEKDAYS, formatDay, formatMonth } from "@/lib/logic/dates";
 import { kg, rands } from "@/lib/format";
-import type { Frequency } from "@/lib/types";
 
 const OUTCOME = { pending: "muted", collected: "good", rejected: "hot", missed: "warn" } as const;
 
@@ -33,7 +32,7 @@ function CustomerDetailView() {
   const u = row.user;
   const erased = u.status === "erased";
   const act = async (fn: () => Promise<unknown>) => { try { await fn(); setError(null); } catch (e) { setError((e as Error).message); } };
-  const plan: Frequency | "none" = row.plan && row.plan.status === "active" ? row.plan.frequency : "none";
+  const plan: "on" | "off" = row.plan?.status === "active" ? "on" : "off";
   const maxKg = Math.max(...c.months.map((m) => m.kg), 1);
 
   return (
@@ -126,12 +125,12 @@ function CustomerDetailView() {
           </Panel>
 
           {!erased && (
-            <Panel title="Standing pickup">
+            <Panel title="Weekly pickup">
               {row.zone ? (
                 <>
-                  <Seg value={plan} onChange={(v) => act(() => api.adminSetPlan(u.id, v === "none" ? null : v))}
-                    options={[{ value: "weekly", label: "Weekly" }, { value: "fortnightly", label: "Fortnightly" }, { value: "none", label: "None" }]} />
-                  {row.plan?.status === "pending" && <p className="mt-3 text-sm text-[#aab3ff]">They asked for {row.plan.frequency}. Approve it in Requests, or pick it here.</p>}
+                  <Seg value={plan} onChange={(v) => act(() => api.adminSetPlan(u.id, v === "on" ? "weekly" : null))}
+                    options={[{ value: "on", label: "Weekly: on" }, { value: "off", label: "Off" }]} />
+                  {row.plan?.status === "pending" && <p className="mt-3 text-sm text-[#aab3ff]">They&rsquo;re waiting for approval. Approve it in Requests, or switch it on here.</p>}
                   <p className="mt-3 text-xs text-fog-3">Setting it here confirms it straight away and messages the customer.</p>
                 </>
               ) : <p className="text-sm text-fog-2">Plans need a zone. Add {row.address?.suburb} to a zone first.</p>}

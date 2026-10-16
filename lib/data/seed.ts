@@ -65,7 +65,7 @@ export function createSeed(today: ISODate = toISODate(new Date())): DB {
     otps: {},
   };
 
-  // Households: 10 per zone. Most on standing plans, a few one-off only, a few pending approval.
+  // Households: 10 per zone, all on weekly pickups: most long-standing, a few recent, one per zone awaiting approval.
   CUSTOMER_NAMES.forEach((name, i) => {
     const zone = db.zones[i % 3];
     const id = `u-c${String(i + 1).padStart(2, "0")}`;
@@ -80,9 +80,10 @@ export function createSeed(today: ISODate = toISODate(new Date())): DB {
     if (i % 10 === 9) {
       // Newer sign-up waiting for approval.
       db.subscriptions.push({ id: `s-${id}`, userId: id, frequency: "weekly", startDate: nextWeekday(addDays(today, 1), zone.collectionDay), status: "pending", skipped: [], createdAt: iso(addDays(today, -2)) });
-    } else if (i % 10 !== 8) {
-      const frequency = i % 4 === 1 ? "fortnightly" : "weekly";
-      db.subscriptions.push({ id: `s-${id}`, userId: id, frequency, startDate: addDays(firstDay, (i % 2) * 7), status: "active", skipped: [], createdAt: iso(joined) });
+    } else {
+      // i % 10 === 8: joined recently, three weeks of history.
+      const start = i % 10 === 8 ? addDays(firstDay, 49) : addDays(firstDay, (i % 2) * 7);
+      db.subscriptions.push({ id: `s-${id}`, userId: id, frequency: "weekly", startDate: start, status: "active", skipped: [], createdAt: iso(i % 10 === 8 ? addDays(start, -5) : joined) });
     }
   });
 
@@ -100,19 +101,6 @@ export function createSeed(today: ISODate = toISODate(new Date())): DB {
 
   // Random skips on upcoming dates and occasional past ones.
   for (const s of db.subscriptions) if (r() < 0.25) s.skipped.push(addDays(s.startDate, 7 * (1 + Math.floor(r() * 6))));
-
-  // One-off requests: some approved in the past, some pending in the queue.
-  const oneOffs = db.users.filter((u) => u.role === "customer" && !db.subscriptions.some((s) => s.userId === u.id));
-  for (const u of oneOffs) {
-    const zone = db.zones.find((z) => z.id === db.addresses.find((a) => a.userId === u.id)!.zoneId)!;
-    for (const w of [-56, -28, -7]) db.requests.push({ id: `req-${u.id}${w}`, userId: u.id, date: nextWeekday(addDays(today, w), zone.collectionDay), status: "approved", createdAt: iso(addDays(today, w - 4)) });
-    db.requests.push({ id: `req-${u.id}-next`, userId: u.id, date: nextWeekday(addDays(today, 1), zone.collectionDay), status: "pending", createdAt: iso(addDays(today, -1)) });
-  }
-  // A couple of extra one-off top-ups from plan customers.
-  for (const id of ["u-c04", "u-c11"]) {
-    const zone = db.zones.find((z) => z.id === db.addresses.find((a) => a.userId === id)!.zoneId)!;
-    db.requests.push({ id: `req-${id}-extra`, userId: id, date: nextWeekday(addDays(today, 8), zone.collectionDay), status: "pending", note: "Moving house, extra boxes", createdAt: iso(addDays(today, -1)) });
-  }
 
   // Past collections with outcomes.
   for (const run of db.runs.filter((x) => x.status === "completed")) {

@@ -2,19 +2,19 @@
 
 import { useState } from "react";
 import { PageTitle } from "@/components/CustomerShell";
-import { IconCheck, IconSkip } from "@/components/Icons";
-import { Button, Card, Chip, ErrorNote, SectionHead, Skeleton, StatusBadge } from "@/components/ui";
+import { IconCalendar, IconCheck, IconSkip } from "@/components/Icons";
+import { Button, Card, ErrorNote, SectionHead, Skeleton, StatusBadge } from "@/components/ui";
 import { api, type UpcomingDay } from "@/lib/data";
 import { useData } from "@/lib/data/hooks";
 import { WEEKDAYS, formatDay } from "@/lib/logic/dates";
 import { kg } from "@/lib/format";
-import type { Frequency } from "@/lib/types";
 
 export default function Collections() {
   const { data: home } = useData(() => api.getMyHome());
   const [selected, setSelected] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+  const [stopping, setStopping] = useState(false);
 
   if (!home) return <div className="space-y-4 pt-2"><Skeleton className="h-12 w-56" /><Skeleton className="h-40" /><Skeleton className="h-60" /></div>;
 
@@ -25,32 +25,42 @@ export default function Collections() {
   };
 
   const sub = home.subscription;
-  const plan: Frequency | "none" = sub && sub.status !== "declined" ? sub.frequency : "none";
+  const onPlan = sub?.status === "active";
   const day: UpcomingDay | undefined = home.upcoming.find((u) => u.date === selected) ?? home.upcoming[0];
 
   if (!home.zone) {
     return (
       <div className="rise">
         <PageTitle title="Collections" sub="Waiting list" />
-        <Card className="mt-6 p-5 text-ink-2">We don&rsquo;t collect in {home.address?.suburb} yet. Once we do, you can choose a plan here.</Card>
+        <Card className="mt-6 p-5 text-ink-2">We don&rsquo;t collect in {home.address?.suburb} yet. Once we do, you can start a weekly pickup here.</Card>
       </div>
     );
   }
+  const weekday = WEEKDAYS[home.zone.collectionDay];
 
   return (
     <div className="rise">
-      <PageTitle title="Collections" sub={`Zone ${home.zone.code} · every ${WEEKDAYS[home.zone.collectionDay]}`} />
+      <PageTitle title="Collections" sub={`Zone ${home.zone.code} · every ${weekday}`} />
 
-      <SectionHead title="Your plan" />
-      <div className="no-scrollbar -mx-5 flex gap-2 overflow-x-auto px-5">
-        {(["weekly", "fortnightly", "none"] as const).map((f) => (
-          <Chip key={f} active={plan === f} onClick={() => act(() => api.setPlan(f === "none" ? null : f))}>
-            {f === "weekly" ? "Weekly" : f === "fortnightly" ? "Fortnightly" : "One-offs only"}
-          </Chip>
-        ))}
-      </div>
-      {sub?.status === "pending" && <p className="mt-2 text-sm text-ink-2">Waiting for our team to confirm your {sub.frequency} plan.</p>}
-      {sub?.status === "declined" && <p className="mt-2 text-sm text-rose-deep">We couldn&rsquo;t take on a standing plan right now. You can still book one-offs.</p>}
+      <SectionHead title="Weekly pickup" />
+      <Card className="flex items-center gap-4 p-4">
+        <span className={`grid size-12 shrink-0 place-items-center rounded-2xl ${onPlan ? "bg-mint text-mint-deep" : "bg-paper text-ink-3"}`}><IconCalendar size={22} /></span>
+        <div className="min-w-0 flex-1">
+          <p className="font-medium">{onPlan ? `On · every ${weekday}` : sub?.status === "pending" ? "Waiting for confirmation" : "Off"}</p>
+          <p className="text-sm text-ink-2">
+            {onPlan ? "Skip any week below." : sub?.status === "pending" ? "Our team confirms new pickups, usually within a day." :
+              sub?.status === "declined" ? "We couldn't take you on just yet. Try again or contact us." : "Start it to be collected every week."}
+          </p>
+        </div>
+        {onPlan || sub?.status === "pending" ? (
+          stopping ? (
+            <div className="flex shrink-0 gap-1.5">
+              <Button size="sm" variant="danger" disabled={busy} onClick={() => act(async () => { await api.setPlan(null); setStopping(false); })}>Stop</Button>
+              <Button size="sm" variant="ghost" onClick={() => setStopping(false)}>Keep</Button>
+            </div>
+          ) : <Button size="sm" variant="soft" className="shrink-0" onClick={() => setStopping(true)}>Stop</Button>
+        ) : <Button size="sm" className="shrink-0" disabled={busy} onClick={() => act(() => api.setPlan("weekly"))}>Start</Button>}
+      </Card>
 
       <SectionHead title="Collection days" />
       {/* Week strip, after the reference's appointment slot picker */}
@@ -65,7 +75,7 @@ export default function Collections() {
                 <span className={`grid size-11 place-items-center rounded-full text-[17px] font-medium transition ${isSel ? "bg-lilac-deep text-white shadow-[0_0_0_4px_white]" : "text-ink"}`}>
                   {formatDay(u.date, { day: "numeric" })}
                 </span>
-                <span className={`size-1.5 rounded-full ${u.scheduled ? "bg-lilac-deep" : u.request ? "bg-[#d9a520]" : u.skipped ? "bg-ink/25" : "bg-transparent"}`} />
+                <span className={`size-1.5 rounded-full ${u.scheduled ? "bg-lilac-deep" : u.skipped ? "bg-ink/25" : "bg-transparent"}`} />
               </button>
             );
           })}
@@ -78,20 +88,14 @@ export default function Collections() {
           <p className="font-display text-[30px] leading-tight">{formatDay(day.date, { day: "numeric", month: "long" })}</p>
           <p className="mt-2 text-[15px] text-ink-2">
             {day.skipped ? "You've skipped this one." :
-              day.request?.status === "pending" ? "Requested. We'll confirm soon." :
-              day.scheduled ? "We'll be there. Bags out by 7am." :
-              day.date === api.today() ? "Nothing booked today. Requests close the day before." :
-              "Nothing booked for this day."}
+              day.scheduled ? (day.date === api.today() ? "Collection day. Bags out by 7am." : "We'll be there. Bags out by 7am.") :
+              onPlan ? "Not on your plan yet." : "No pickup. Start your weekly pickup above."}
           </p>
           <div className="mt-4 flex flex-wrap gap-2">
-            {day.scheduled && !day.request && sub?.status === "active" && (
-              <Button variant="soft" size="sm" disabled={busy} onClick={() => act(() => api.skipCollection(day.date, true))}><IconSkip size={16} /> Skip</Button>
+            {day.scheduled && !day.request && onPlan && day.date > api.today() && (
+              <Button variant="soft" size="sm" disabled={busy} onClick={() => act(() => api.skipCollection(day.date, true))}><IconSkip size={16} /> Skip this week</Button>
             )}
-            {day.skipped && <Button size="sm" disabled={busy} onClick={() => act(() => api.skipCollection(day.date, false))}><IconCheck size={16} /> Collect after all</Button>}
-            {!day.scheduled && !day.skipped && !day.request && day.date > api.today() && (
-              <Button size="sm" disabled={busy} onClick={() => act(() => api.createCollectionRequest({ date: day.date }))}>Request this date</Button>
-            )}
-            {day.request && <Button variant="soft" size="sm" disabled={busy} onClick={() => act(() => api.cancelCollectionRequest(day.request!.id))}>Cancel request</Button>}
+            {day.skipped && day.date > api.today() && <Button size="sm" disabled={busy} onClick={() => act(() => api.skipCollection(day.date, false))}><IconCheck size={16} /> Collect after all</Button>}
           </div>
           {error && <div className="mt-3"><ErrorNote>{error}</ErrorNote></div>}
         </Card>

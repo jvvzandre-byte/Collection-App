@@ -17,12 +17,11 @@ export function upcomingCollectionDays(zone: Zone, from: ISODate, count: number)
   return Array.from({ length: count }, (_, i) => addDays(first, i * 7));
 }
 
-/** Does a standing pickup fall on this date (ignoring skips)? */
+/** Does a weekly plan fall on this date (ignoring skips)? */
 export function planCovers(sub: Subscription, date: ISODate): boolean {
   if (sub.status !== "active") return false;
   const diff = daysBetween(sub.startDate, date);
-  if (diff < 0 || diff % 7 !== 0) return false;
-  return sub.frequency === "weekly" || (diff / 7) % 2 === 0;
+  return diff >= 0 && diff % 7 === 0;
 }
 
 /** Is this customer due for a collection on `date`? */
