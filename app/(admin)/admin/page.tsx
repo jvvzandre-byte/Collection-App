@@ -66,7 +66,7 @@ export default function Overview() {
         <Panel title="Upcoming runs" action={<Link href="/admin/runs" className="text-sm text-fog-2 hover:text-fog">All runs</Link>}>
           <div className="no-scrollbar -mx-5 flex gap-3 overflow-x-auto px-5 pb-1">
             {d.upcomingRuns.map((r) => (
-              <Link key={r.id} href={`/admin/runs/${r.id}`} className="inset-row flex w-[240px] shrink-0 flex-col gap-4 p-4 transition hover:border-white/15">
+              <Link key={r.id} href={`/admin/runs/view?id=${r.id}`} className="inset-row flex w-[240px] shrink-0 flex-col gap-4 p-4 transition hover:border-white/15">
                 <div className="flex items-start justify-between">
                   {r.driver ? <Tag tone="white">Assigned</Tag> : <Tag tone="electric">Needs driver</Tag>}
                   <div className="text-right text-xs text-fog-3">

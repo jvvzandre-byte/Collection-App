@@ -214,3 +214,12 @@ npm test        # run logic + data-layer tests
 The app starts with seed data (3 zones, 30 households, 2 drivers, 1 admin, ~10 weeks of history).
 Use the orange **DEV** tab on the right edge to switch between customer, driver and admin, or to reset the data.
 Phone verification is stubbed: the code is shown on screen and logged in Admin → Sent messages.
+
+### Hosting (GitHub Pages)
+
+The app is a static export (`output: "export"` in `next.config.ts`), so it runs on GitHub Pages while the data lives in each browser's localStorage.
+`.github/workflows/deploy-pages.yml` tests, builds and deploys on every push to `main`.
+One-time setup: repo **Settings → Pages → Build and deployment → Source: GitHub Actions**.
+The site is then at `https://<owner>.github.io/Collection-App/`. Run `PAGES_BASE_PATH=/Collection-App npm run build && npm run preview` to try the export locally.
+
+Static hosting is fine for the mock-data phase. Once Supabase is in, the draw has to run server-side (e.g. a Supabase Edge Function), which still works from a static front end.

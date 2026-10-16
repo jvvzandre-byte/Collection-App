@@ -3,7 +3,13 @@
 Product spec: `Docs/README.md`. UI references: `Docs/Admin UI.png` (admin, dark) and `Docs/Mobile UI.png` (customer, light).
 
 ## Commands
-- `npm run dev` · `npm run build` · `npm test` (vitest) · `npm run lint` (tsc)
+- `npm run dev` · `npm run build` (static export to `out/`) · `npm test` (vitest) · `npm run lint` (tsc)
+
+## Hosting
+- GitHub Pages via `.github/workflows/deploy-pages.yml` (push to `main`). Static export only: no server code,
+  no dynamic route segments. Detail pages take query params (`/admin/runs/view?id=`, `/driver/run?id=`).
+- `PAGES_BASE_PATH` sets the base path; links via `next/link`/router get it automatically, raw URLs
+  (manifest, service worker) must use `process.env.NEXT_PUBLIC_BASE_PATH`.
 
 ## Hard rules
 - **UI code never accesses storage directly.** Screens call `api.*` from `@/lib/data` (interface in `lib/data/api.ts`).
@@ -28,7 +34,7 @@ Product spec: `Docs/README.md`. UI references: `Docs/Admin UI.png` (admin, dark)
 
 ## Layout
 - `app/(customer)` welcome, signup, login, rules + `(app)/` home, collections, draw, profile
-- `app/(driver)/driver` route list + `run/[id]` stop recording
+- `app/(driver)/driver` route list + `run?id=` stop recording
 - `app/(admin)/admin` overview, runs, requests, exceptions, customers, zones (+waitlist, rule settings), draw, messages
 - Design tokens in `app/globals.css` (`@theme`). Light: paper/ink/lilac/butter. Dark admin: night/fog/hot/cool/electric.
   Fonts: Instrument Serif (display), Onest (UI). Chart colours `#6E7BF2` / `#E6457F` are validated for the dark surface.

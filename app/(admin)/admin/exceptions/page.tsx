@@ -47,7 +47,7 @@ export default function Exceptions() {
                       <ABtn size="sm" variant="line" onClick={() => act(e.collectionId!, "resolve")}>Mark resolved</ABtn>
                     </>
                   ) : (
-                    <Link href={`/admin/runs/${e.runId}`} className="inline-flex h-8 items-center rounded-full bg-fog px-3 text-[13px] font-medium text-night">Open run</Link>
+                    <Link href={`/admin/runs/view?id=${e.runId}`} className="inline-flex h-8 items-center rounded-full bg-fog px-3 text-[13px] font-medium text-night">Open run</Link>
                   )}
                 </div>
               </li>

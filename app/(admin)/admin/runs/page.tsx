@@ -46,7 +46,7 @@ export default function Runs() {
                     {r.status === "completed" ? <Tag tone="muted">Completed</Tag> : r.status === "in_progress" ? <Tag tone="hot">On route · {done}/{r.stopCount}</Tag> : <Tag tone="white">Planned</Tag>}
                   </td>
                   <td className="tabular text-fog-2">{r.collectedKg ? kg(r.collectedKg) : "–"}</td>
-                  <td className="w-10"><Link href={`/admin/runs/${r.id}`} aria-label="Open run" className="grid size-8 place-items-center rounded-full hover:bg-night-3"><IconChevronRight size={16} /></Link></td>
+                  <td className="w-10"><Link href={`/admin/runs/view?id=${r.id}`} aria-label="Open run" className="grid size-8 place-items-center rounded-full hover:bg-night-3"><IconChevronRight size={16} /></Link></td>
                 </tr>
               );
             })}

@@ -1,5 +1,5 @@
 // Minimal offline shell: network first, fall back to cache. Drivers lose signal on routes.
-const CACHE = "kerbside-v1";
+const CACHE = "kerbside-v2";
 
 self.addEventListener("install", () => self.skipWaiting());
 self.addEventListener("activate", (e) => e.waitUntil(self.clients.claim()));
@@ -14,6 +14,6 @@ self.addEventListener("fetch", (e) => {
         caches.open(CACHE).then((c) => c.put(req, copy));
         return res;
       })
-      .catch(() => caches.match(req).then((r) => r || caches.match("/")))
+      .catch(() => caches.match(req).then((r) => r || caches.match(self.registration.scope)))
   );
 });

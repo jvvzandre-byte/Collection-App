@@ -38,7 +38,7 @@ export default function DriverHome() {
       <h2 className="mb-3 mt-8 text-[19px] font-semibold">Coming up</h2>
       <div className="space-y-2">
         {later.map((r) => (
-          <Link key={r.id} href={`/driver/run/${r.id}`} className="flex items-center gap-4 rounded-3xl bg-card p-4">
+          <Link key={r.id} href={`/driver/run?id=${r.id}`} className="flex items-center gap-4 rounded-3xl bg-card p-4">
             <div className="grid size-14 place-items-center rounded-2xl bg-paper text-center leading-none">
               <span className="text-lg font-semibold">{formatDay(r.date, { day: "numeric" })}</span>
               <span className="text-[11px] uppercase text-ink-3">{formatDay(r.date, { weekday: "short" })}</span>
@@ -79,7 +79,7 @@ function TodayCard({ run }: { run: RunView }) {
         </div>
       </div>
       <div className="mt-5 h-2 overflow-hidden rounded-full bg-white/10"><div className="h-full rounded-full bg-butter transition-all" style={{ width: `${pct}%` }} /></div>
-      <Link href={`/driver/run/${run.id}`} className="mt-6 flex h-16 items-center justify-between rounded-full bg-white p-2 pl-6 text-[17px] font-medium text-ink">
+      <Link href={`/driver/run?id=${run.id}`} className="mt-6 flex h-16 items-center justify-between rounded-full bg-white p-2 pl-6 text-[17px] font-medium text-ink">
         {run.status === "completed" ? "View run" : done ? "Continue route" : "Start route"}
         <span className="grid size-12 place-items-center rounded-full bg-ink text-white"><IconArrowRight /></span>
       </Link>

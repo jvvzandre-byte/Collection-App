@@ -1,7 +1,8 @@
 "use client";
 
 import Link from "next/link";
-import { use } from "react";
+import { useSearchParams } from "next/navigation";
+import { Suspense } from "react";
 import { DriverSelect } from "@/components/admin/DriverSelect";
 import { ATable, Empty, PageHead, Panel, Tag } from "@/components/admin/ui";
 import { IconArrowLeft } from "@/components/Icons";
@@ -12,8 +13,13 @@ import { kg } from "@/lib/format";
 
 const tone = { pending: "muted", collected: "good", rejected: "hot", missed: "warn" } as const;
 
-export default function RunDetail({ params }: { params: Promise<{ id: string }> }) {
-  const { id } = use(params);
+// Query-param route (/admin/runs/view?id=…) so the app can be statically exported.
+export default function RunDetailPage() {
+  return <Suspense><RunDetail /></Suspense>;
+}
+
+function RunDetail() {
+  const id = useSearchParams().get("id") ?? "";
   const { data, error } = useData(async () => ({ run: await api.getRun(id), drivers: await api.getDrivers() }), [id]);
   if (error) return <Empty>{error.message}</Empty>;
   if (!data) return <div className="h-64 animate-pulse rounded-3xl bg-night-1" />;

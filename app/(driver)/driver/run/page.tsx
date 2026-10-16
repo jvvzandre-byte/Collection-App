@@ -1,7 +1,8 @@
 "use client";
 
 import Link from "next/link";
-import { use, useMemo, useState } from "react";
+import { useSearchParams } from "next/navigation";
+import { Suspense, useMemo, useState } from "react";
 import { IconArrowLeft, IconCheck, IconPhone, IconUndo, IconX } from "@/components/Icons";
 import { Button, Chip, ErrorNote, Sheet, Skeleton, StatusBadge } from "@/components/ui";
 import { api, type StopView } from "@/lib/data";
@@ -14,8 +15,13 @@ const MISS = ["Bags not out", "Gate locked", "Couldn't find address", "Road bloc
 
 type Filter = "todo" | "done" | "all";
 
-export default function RunPage({ params }: { params: Promise<{ id: string }> }) {
-  const { id } = use(params);
+// Query-param route (/driver/run?id=…) so the app can be statically exported.
+export default function RunPageWrapper() {
+  return <Suspense><RunPage /></Suspense>;
+}
+
+function RunPage() {
+  const id = useSearchParams().get("id") ?? "";
   const { data: run, error } = useData(() => api.getRun(id), [id]);
   const [filter, setFilter] = useState<Filter>("todo");
   const [openId, setOpenId] = useState<string | null>(null);
